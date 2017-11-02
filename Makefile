@@ -24,7 +24,7 @@ LIB_INCS	= -I $(LIB_PATH)/incs
 LIB_LD		= -L $(LIB_PATH) -lft
 
 SDL_INCS    = -I/Users/lchenut/.brew/include/SDL2 -D_THREAD_SAFE
-SDL_LD      = -L/Users/lchenut/.brew/lib -lSDL2
+SDL_LD      = -L/Users/lchenut/.brew/lib -lSDL2 -lSDL2_ttf
 
 C_DIR		= srcs
 H_DIR		= incs

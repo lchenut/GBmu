@@ -8,23 +8,33 @@ typedef struct	s_opcode {
 	size_t		clock;
 }				t_opcode;
 
-#define FLAG_ZERO  ((reg.f >> 7) & 1)
-#define FLAG_NEG   ((reg.f >> 6) & 1)
-#define FLAG_HALF  ((reg.f >> 5) & 1)
-#define FLAG_CARRY ((reg.f >> 4) & 1)
-#define SET_FLAG_ZERO  (reg.f |= (1 << 7))
-#define SET_FLAG_NEG   (reg.f |= (1 << 6))
-#define SET_FLAG_HALF  (reg.f |= (1 << 5))
-#define SET_FLAG_CARRY (reg.f |= (1 << 4))
-#define UNSET_FLAG_ZERO  (reg.f &= ~(1 << 7))
-#define UNSET_FLAG_NEG   (reg.f &= ~(1 << 6))
-#define UNSET_FLAG_HALF  (reg.f &= ~(1 << 5))
-#define UNSET_FLAG_CARRY (reg.f &= ~(1 << 4))
+void			add_reg_val(unsigned short *r, unsigned short val)
+{
+	unsigned int	res;
+
+	res = *r + val;
+	SET_CARRY_IF(res & 0xffff0000);
+	UNSET_FLAG_NEG;
+	SET_HALF_IF(((*r & 0x0fff) + (val & 0x0fff)) & 0xf000);
+	*r = (unsigned short)(res & 0xffff);
+}
+
+void			add_carry(unsigned char val)
+{
+	unsigned short	res;
+
+	res = reg.a + val + FLAG_CARRY;
+	SET_HALF_IF(((reg.a & 0xf) + (val & 0xf) + FLAG_CARRY) & 0xf0);
+	SET_CARRY_IF(res & 0xff00);
+	SET_ZERO_IF((res & 0x00ff) == 0);
+	UNSET_FLAG_NEG;
+	reg.a = (unsigned char)(res & 0x00ff);
+}
 
 void			xor(unsigned char c)
 {
 	reg.a ^= c;
-	reg.a == 0 ? SET_FLAG_ZERO : UNSET_FLAG_ZERO;
+	SET_ZERO_IF(reg.a == 0);
 	UNSET_FLAG_NEG;
 	UNSET_FLAG_HALF;
 	UNSET_FLAG_CARRY;
@@ -32,9 +42,9 @@ void			xor(unsigned char c)
 
 unsigned char	inc(unsigned char value)
 {
-	(value & 0x0f) == 0x0f ? SET_FLAG_HALF : UNSET_FLAG_HALF;
+	SET_HALF_IF((value & 0x0f) == 0x0f);
 	value += 1;
-	value == 0 ? SET_FLAG_ZERO : UNSET_FLAG_ZERO;
+	SET_ZERO_IF(value == 0);
 	UNSET_FLAG_NEG;
 	return (value);
 }
@@ -42,169 +52,335 @@ unsigned char	inc(unsigned char value)
 
 unsigned char	dec(unsigned char value)
 {
-	value & 0x0f ? UNSET_FLAG_HALF : SET_FLAG_HALF;
+	SET_HALF_IF(value & 0x0f);
 	value -= 1;
-	value == 0 ? SET_FLAG_ZERO : UNSET_FLAG_ZERO;
+	SET_ZERO_IF(value == 0);
+	printf("==> value: %hhu\n", value);
 	SET_FLAG_NEG;
 	return (value);
 }
 
-void			nop(void) { } // 0x00
-void			ld_bc_nn(unsigned short op) { reg.bc = op; } // 0x01
-void			ld_bc_a(void) { printf("0x%04hx\n", reg.bc); memory_write_byte(reg.bc, reg.a); } // 0x02
-void			inc_b(void) { reg.b = inc(reg.b); } // 0x04
-void			dec_b(void) { reg.b = dec(reg.b); } // 0x05
-void			ld_b_n(unsigned char op) { reg.c = op; } // 0x06
-void			inc_c(void) { reg.c = inc(reg.c); } // 0x0c
-void			dec_c(void) { reg.c = dec(reg.c); } // 0x0d
-void			ld_c_n(unsigned char op) { reg.c = op; } // 0x0e
-void			inc_d(void) { reg.d = inc(reg.d); } // 0x14
-void			dec_d(void) { reg.d = dec(reg.d); } // 0x15
-void			ld_a_de(void) { reg.a = memory_read_byte(reg.de); } // 0x1a
-void			inc_e(void) { reg.e = inc(reg.e); } // 0x1c
-void			dec_e(void) { reg.e = dec(reg.e); } // 0x1d
-void			jr_nz_n(unsigned char op) { if (FLAG_ZERO) { ; } else { reg.pc += (signed char)op; } } // 0x20 TODO if (0) 8 clock else 12 clock
-void			ld_hl_nn(unsigned short op) { reg.hl = op; } // 0x21
-void			inc_h(void) { reg.h = inc(reg.h); } // 0x24
-void			dec_h(void) { reg.h = dec(reg.h); } // 0x25
-void			inc_l(void) { reg.l = inc(reg.l); } // 0x2c
-void			dec_l(void) { reg.l = dec(reg.l); } // 0x2d
-void			ldd_hl_a(void) { memory_write_byte(reg.hl, reg.a); reg.hl -= 1; } // 0x32
-void			inc_a(void) { reg.a = inc(reg.a); } // 0x3c
-void			dec_a(void) { reg.a = dec(reg.a); } // 0x3d
-
-// 0x40
-void			ld_b_c(void) { reg.b = reg.c; } // 0x41
-void			ld_b_d(void) { reg.b = reg.d; } // 0x42
-void			ld_b_e(void) { reg.b = reg.e; } // 0x43
-void			ld_b_h(void) { reg.b = reg.h; } // 0x44
-void			ld_b_l(void) { reg.b = reg.l; } // 0x45
-// 0x46
-void			ld_b_a(void) { reg.b = reg.a; } // 0x47
-void			ld_c_b(void) { reg.c = reg.b; } // 0x48
-// 0x49
-void			ld_c_d(void) { reg.c = reg.d; } // 0x4a
-void			ld_c_e(void) { reg.c = reg.e; } // 0x4b
-void			ld_c_h(void) { reg.c = reg.h; } // 0x4c
-void			ld_c_l(void) { reg.c = reg.l; } // 0x4d
-// 0x4e
-void			ld_c_a(void) { reg.c = reg.a; } // 0x4f
-void			ld_d_b(void) { reg.d = reg.b; } // 0x50
-void			ld_d_c(void) { reg.d = reg.c; } // 0x51
-// 0x52
-void			ld_d_e(void) { reg.d = reg.e; } // 0x53
-void			ld_d_h(void) { reg.d = reg.h; } // 0x54
-void			ld_d_l(void) { reg.d = reg.l; } // 0x55
-// 0x56
-void			ld_d_a(void) { reg.d = reg.a; } // 0x57
-void			ld_e_b(void) { reg.e = reg.b; } // 0x58
-void			ld_e_c(void) { reg.e = reg.c; } // 0x59
-void			ld_e_d(void) { reg.e = reg.d; } // 0x5a
-// 0x5b
-void			ld_e_h(void) { reg.e = reg.h; } // 0x5c
-void			ld_e_l(void) { reg.e = reg.l; } // 0x5d
-// 0x5e
-void			ld_e_a(void) { reg.e = reg.a; } // 0x5f
-void			ld_h_b(void) { reg.h = reg.b; } // 0x60
-void			ld_h_c(void) { reg.h = reg.c; } // 0x61
-void			ld_h_d(void) { reg.h = reg.d; } // 0x62
-void			ld_h_e(void) { reg.h = reg.e; } // 0x63
-// 0x64
-void			ld_h_l(void) { reg.h = reg.l; } // 0x65
-// 0x66
-void			ld_h_a(void) { reg.h = reg.a; } // 0x67
-void			ld_l_b(void) { reg.l = reg.b; } // 0x68
-void			ld_l_c(void) { reg.l = reg.c; } // 0x69
-void			ld_l_d(void) { reg.l = reg.d; } // 0x6a
-void			ld_l_e(void) { reg.l = reg.e; } // 0x6b
-void			ld_l_h(void) { reg.l = reg.h; } // 0x6c
-// 0x6d
-// 0x6e
-
-void			ld_l_a(void) { reg.l = reg.a; } // 0x6f
-void			ld_a_b(void) { reg.a = reg.b; } // 0x78
-void			ld_a_c(void) { reg.a = reg.c; } // 0x79
-void			ld_a_d(void) { reg.a = reg.d; } // 0x7a
-void			ld_a_e(void) { reg.a = reg.e; } // 0x7b
-void			ld_a_h(void) { reg.a = reg.h; } // 0x7c
-void			ld_a_l(void) { reg.a = reg.l; } // 0x7d
-// 0x7e
-// 0x7f
-
-void			xor_b(void) { xor(reg.b); } // 0xa8
-void			xor_c(void) { xor(reg.c); } // 0xa9
-void			xor_d(void) { xor(reg.d); } // 0xaa
-void			xor_e(void) { xor(reg.e); } // 0xab
-void			xor_h(void) { xor(reg.h); } // 0xac
-void			xor_l(void) { xor(reg.l); } // 0xad
-void			xor_a(void) { xor(reg.a); } // 0xaf
-void			jp_nn(unsigned short op) { reg.pc = op; } // 0xc3
-void			ldh_a_n(unsigned char op) { reg.a = memory_read_byte(0xff00 | op); } // f0
+/* 0x00 */ void nop(void) { }
+/* 0x01 */ void ld_bc_nn(unsigned short op) { reg.bc = op; }
+/* 0x02 */ void ld_bc_a(void) { printf("0x%04hx\n", reg.bc); memory_write_byte(reg.bc, reg.a); }
+/* 0x03 */ void inc_bc(void) { reg.bc += 1; }
+/* 0x04 */ void inc_b(void) { reg.b = inc(reg.b); }
+/* 0x05 */ void dec_b(void) { reg.b = dec(reg.b); }
+/* 0x06 */ void ld_b_n(unsigned char op) { reg.c = op; }
+/* 0x07 */ void rlc_a(void) { unsigned char c; SET_CARRY_IF(c = (reg.a >> 7) & 1); reg.a = (reg.a << 1) | c; SET_ZERO_IF(c == 0); UNSET_FLAG_NEG; UNSET_FLAG_HALF; }
+/* 0x08 */ void ld_nn_sp(unsigned short op) { memory_write_word(op, reg.sp); }
+/* 0x09 */ void add_hl_bc(void) { add_reg_val(&(reg.hl), reg.bc); }
+/* 0x0a */ 
+/* 0x0b */ void dec_bc(void) { reg.bc -= 1; }
+/* 0x0c */ void inc_c(void) { reg.c = inc(reg.c); }
+/* 0x0d */ void dec_c(void) { reg.c = dec(reg.c); }
+/* 0x0e */ void ld_c_n(unsigned char op) { reg.c = op; }
+/* 0x0f */ void rrc_a(void) { unsigned char c; SET_CARRY_IF(c = (reg.a & 1) << 7); reg.a = (reg.a >> 1) | c; SET_ZERO_IF(c == 0); UNSET_FLAG_NEG; UNSET_FLAG_HALF; }
+/* 0x10 */
+/* 0x11 */
+/* 0x12 */ void ld_de_a(void) { memory_write_byte(reg.de, reg.a); }
+/* 0x13 */ void inc_de(void) { reg.de += 1; }
+/* 0x14 */ void inc_d(void) { reg.d = inc(reg.d); }
+/* 0x15 */ void dec_d(void) { reg.d = dec(reg.d); }
+/* 0x16 */ void ld_d_n(unsigned char op) { reg.d = op; }
+/* 0x17 */ void rl_a(void) { unsigned char c; c = FLAG_CARRY; SET_CARRY_IF((reg.a >> 7) & 1); reg.a = (reg.a << 1) | c; SET_ZERO_IF(c == 0); UNSET_FLAG_NEG; UNSET_FLAG_HALF; }
+/* 0x18 */
+/* 0x19 */ void add_hl_de(void) { add_reg_val(&(reg.hl), reg.de); }
+/* 0x1a */ void ld_a_de(void) { reg.a = memory_read_byte(reg.de); }
+/* 0x1b */ void dec_de(void) { reg.de -= 1; }
+/* 0x1c */ void inc_e(void) { reg.e = inc(reg.e); }
+/* 0x1d */ void dec_e(void) { reg.e = dec(reg.e); }
+/* 0x1e */ void ld_e_n(unsigned char op) { reg.e = op; }
+/* 0x1f */ void rr_a(void) { unsigned char c; c = FLAG_CARRY << 7; SET_CARRY_IF(reg.a & 1); reg.a = (reg.a >> 1) | c; SET_ZERO_IF(c == 0); UNSET_FLAG_NEG; UNSET_FLAG_HALF; }
+/* 0x20 */ void jr_nz_n(unsigned char op) { if (FLAG_ZERO) { ; } else { printf("%hx :: %hhi\n", reg.pc, (signed char)op); reg.pc += (signed char)op; } } // TODO if (0) 8 clock else 12 clock
+/* 0x21 */ void ld_hl_nn(unsigned short op) { reg.hl = op; }
+/* 0x22 */
+/* 0x23 */ void inc_hl(void) { reg.hl += 1; }
+/* 0x24 */ void inc_h(void) { reg.h = inc(reg.h); }
+/* 0x25 */ void dec_h(void) { reg.h = dec(reg.h); }
+/* 0x26 */ void ld_h_n(unsigned char op) { reg.h = op; }
+/* 0x27 */
+/* 0x28 */
+/* 0x29 */ void add_hl_hl(void) { add_reg_val(&(reg.hl), reg.hl); }
+/* 0x2a */
+/* 0x2b */ void dec_hl(void) { reg.hl -= 1; }
+/* 0x2c */ void inc_l(void) { reg.l = inc(reg.l); }
+/* 0x2d */ void dec_l(void) { reg.l = dec(reg.l); }
+/* 0x2e */ void ld_l_n(unsigned char op) { reg.l = op; }
+/* 0x2f */
+/* 0x30 */
+/* 0x31 */
+/* 0x32 */ void ldd_hl_a(void) { memory_write_byte(reg.hl, reg.a); reg.hl -= 1; }
+/* 0x33 */ void inc_sp(void) { reg.sp += 1; }
+/* 0x34 */
+/* 0x35 */
+/* 0x36 */
+/* 0x37 */
+/* 0x38 */
+/* 0x39 */ void add_hl_sp(void) { add_reg_val(&(reg.hl), reg.sp); }
+/* 0x3a */
+/* 0x3b */ void dec_sp(void) { reg.sp -= 1; }
+/* 0x3c */ void inc_a(void) { reg.a = inc(reg.a); }
+/* 0x3d */ void dec_a(void) { reg.a = dec(reg.a); }
+/* 0x3e */ void ld_a_n(unsigned char op) { reg.a = op; }
+/* 0x3f */
+/* 0x40 */
+/* 0x41 */ void ld_b_c(void) { reg.b = reg.c; }
+/* 0x42 */ void ld_b_d(void) { reg.b = reg.d; }
+/* 0x43 */ void ld_b_e(void) { reg.b = reg.e; }
+/* 0x44 */ void ld_b_h(void) { reg.b = reg.h; }
+/* 0x45 */ void ld_b_l(void) { reg.b = reg.l; }
+/* 0x46 */
+/* 0x47 */ void ld_b_a(void) { reg.b = reg.a; }
+/* 0x48 */ void ld_c_b(void) { reg.c = reg.b; }
+/* 0x49 */
+/* 0x4a */ void ld_c_d(void) { reg.c = reg.d; }
+/* 0x4b */ void ld_c_e(void) { reg.c = reg.e; }
+/* 0x4c */ void ld_c_h(void) { reg.c = reg.h; }
+/* 0x4d */ void ld_c_l(void) { reg.c = reg.l; }
+/* 0x4e */
+/* 0x4f */ void ld_c_a(void) { reg.c = reg.a; }
+/* 0x50 */ void ld_d_b(void) { reg.d = reg.b; }
+/* 0x51 */ void ld_d_c(void) { reg.d = reg.c; }
+/* 0x52 */
+/* 0x53 */ void ld_d_e(void) { reg.d = reg.e; }
+/* 0x54 */ void ld_d_h(void) { reg.d = reg.h; }
+/* 0x55 */ void ld_d_l(void) { reg.d = reg.l; }
+/* 0x56 */
+/* 0x57 */ void ld_d_a(void) { reg.d = reg.a; }
+/* 0x58 */ void ld_e_b(void) { reg.e = reg.b; }
+/* 0x59 */ void ld_e_c(void) { reg.e = reg.c; }
+/* 0x5a */ void ld_e_d(void) { reg.e = reg.d; }
+/* 0x5b */
+/* 0x5c */ void ld_e_h(void) { reg.e = reg.h; }
+/* 0x5d */ void ld_e_l(void) { reg.e = reg.l; }
+/* 0x5e */
+/* 0x5f */ void ld_e_a(void) { reg.e = reg.a; }
+/* 0x60 */ void ld_h_b(void) { reg.h = reg.b; }
+/* 0x61 */ void ld_h_c(void) { reg.h = reg.c; }
+/* 0x62 */ void ld_h_d(void) { reg.h = reg.d; }
+/* 0x63 */ void ld_h_e(void) { reg.h = reg.e; }
+/* 0x64 */
+/* 0x65 */ void ld_h_l(void) { reg.h = reg.l; }
+/* 0x66 */
+/* 0x67 */ void ld_h_a(void) { reg.h = reg.a; }
+/* 0x68 */ void ld_l_b(void) { reg.l = reg.b; }
+/* 0x69 */ void ld_l_c(void) { reg.l = reg.c; }
+/* 0x6a */ void ld_l_d(void) { reg.l = reg.d; }
+/* 0x6b */ void ld_l_e(void) { reg.l = reg.e; }
+/* 0x6c */ void ld_l_h(void) { reg.l = reg.h; }
+/* 0x6d */
+/* 0x6e */
+/* 0x6f */ void ld_l_a(void) { reg.l = reg.a; }
+/* 0x70 */ void ld_hl_b(void) { memory_write_byte(reg.hl, reg.b); }
+/* 0x71 */ void ld_hl_c(void) { memory_write_byte(reg.hl, reg.c); }
+/* 0x72 */ void ld_hl_d(void) { memory_write_byte(reg.hl, reg.d); }
+/* 0x73 */ void ld_hl_e(void) { memory_write_byte(reg.hl, reg.e); }
+/* 0x74 */ void ld_hl_h(void) { memory_write_byte(reg.hl, reg.h); }
+/* 0x75 */ void ld_hl_l(void) { memory_write_byte(reg.hl, reg.l); }
+/* 0x76 */
+/* 0x77 */
+/* 0x78 */ void ld_a_b(void) { reg.a = reg.b; }
+/* 0x79 */ void ld_a_c(void) { reg.a = reg.c; }
+/* 0x7a */ void ld_a_d(void) { reg.a = reg.d; }
+/* 0x7b */ void ld_a_e(void) { reg.a = reg.e; }
+/* 0x7c */ void ld_a_h(void) { reg.a = reg.h; }
+/* 0x7d */ void ld_a_l(void) { reg.a = reg.l; }
+/* 0x7e */
+/* 0x7f */
+/* 0x80 */
+/* 0x81 */
+/* 0x82 */
+/* 0x83 */
+/* 0x84 */
+/* 0x85 */
+/* 0x86 */
+/* 0x87 */
+/* 0x88 */ void adc_a_b(void) { add_carry(reg.b); }
+/* 0x89 */ void adc_a_c(void) { add_carry(reg.c); }
+/* 0x8a */ void adc_a_d(void) { add_carry(reg.d); }
+/* 0x8b */ void adc_a_e(void) { add_carry(reg.e); }
+/* 0x8c */ void adc_a_h(void) { add_carry(reg.h); }
+/* 0x8d */ void adc_a_l(void) { add_carry(reg.l); }
+/* 0x8e */
+/* 0x8f */ void adc_a_a(void) { add_carry(reg.a); }
+/* 0x90 */
+/* 0x91 */
+/* 0x92 */
+/* 0x93 */
+/* 0x94 */
+/* 0x95 */
+/* 0x96 */
+/* 0x97 */
+/* 0x98 */
+/* 0x99 */
+/* 0x9a */
+/* 0x9b */
+/* 0x9c */
+/* 0x9d */
+/* 0x9e */
+/* 0x9f */
+/* 0xa0 */ 
+/* 0xa1 */ 
+/* 0xa2 */ 
+/* 0xa3 */ 
+/* 0xa4 */ 
+/* 0xa5 */ 
+/* 0xa6 */ 
+/* 0xa7 */
+/* 0xa8 */ void xor_b(void) { xor(reg.b); }
+/* 0xa9 */ void xor_c(void) { xor(reg.c); }
+/* 0xaa */ void xor_d(void) { xor(reg.d); }
+/* 0xab */ void xor_e(void) { xor(reg.e); }
+/* 0xac */ void xor_h(void) { xor(reg.h); }
+/* 0xad */ void xor_l(void) { xor(reg.l); }
+/* 0xae */ void xor_a(void) { xor(reg.a); }
+/* 0xaf */
+/* 0xb0 */
+/* 0xb1 */
+/* 0xb2 */
+/* 0xb3 */
+/* 0xb4 */
+/* 0xb5 */
+/* 0xb6 */
+/* 0xb7 */
+/* 0xb8 */
+/* 0xb9 */
+/* 0xba */ 
+/* 0xbb */
+/* 0xbc */
+/* 0xbd */
+/* 0xbe */
+/* 0xbf */
+/* 0xc0 */
+/* 0xc1 */
+/* 0xc2 */
+/* 0xc3 */ void jp_nn(unsigned short op) { reg.pc = op; }
+/* 0xc4 */
+/* 0xc5 */
+/* 0xc6 */
+/* 0xc7 */ void rst_00(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x00; }
+/* 0xc8 */
+/* 0xc9 */
+/* 0xca */
+/* 0xcb */
+/* 0xcc */
+/* 0xcd */
+/* 0xce */
+/* 0xcf */ void rst_08(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x08; }
+/* 0xd0 */
+/* 0xd1 */
+/* 0xd2 */
+/* 0xd3 */
+/* 0xd4 */
+/* 0xd5 */
+/* 0xd6 */
+/* 0xd7 */ void rst_10(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x10; }
+/* 0xd8 */
+/* 0xd9 */
+/* 0xda */
+/* 0xdb */
+/* 0xdc */
+/* 0xdd */
+/* 0xde */
+/* 0xdf */ void rst_18(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x18; }
+/* 0xe0 */ void ldh_n_a(unsigned char op) { memory_write_word(0xff00 | op, reg.a); }
+/* 0xe1 */
+/* 0xe2 */
+/* 0xe3 */
+/* 0xe4 */
+/* 0xe5 */
+/* 0xe6 */
+/* 0xe7 */ void rst_20(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x20; }
+/* 0xe8 */
+/* 0xe9 */
+/* 0xea */
+/* 0xeb */
+/* 0xec */
+/* 0xed */
+/* 0xee */
+/* 0xef */ void rst_28(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x28; }
+/* 0xf0 */ void ldh_a_n(unsigned char op) { reg.a = memory_read_byte(0xff00 | op); }
+/* 0xf1 */
+/* 0xf2 */
+/* 0xf3 */ void interrupt_disable(void) { printf("\033[31mINTERRUPT DISABLE (TODO)\033[m\n"); }
+/* 0xf4 */
+/* 0xf5 */
+/* 0xf6 */
+/* 0xf7 */ void rst_30(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x30; }
+/* 0xf8 */
+/* 0xf9 */
+/* 0xfa */
+/* 0xfb */ void interrupt_enable(void) { printf("\033[32mINTERRUPT ENABLE (TODO)\033[m\n"); }
+/* 0xfc */
+/* 0xfd */
+/* 0xfe */ void cp_n(unsigned char op) { SET_ZERO_IF(reg.a == op); SET_CARRY_IF(reg.a <= op); SET_HALF_IF((reg.a & 0x0f) > (op & 0x0f)); SET_FLAG_NEG; }
+/* 0xff */ void rst_38(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x38; }
 
 const t_opcode	opcodes[] = {
-	{ "NOP", 0, nop, 4 },           // 0x00
-	{ "LD BC,nn", 2, ld_bc_nn, 12 },      // 0x01
-	{ "LD (BC),A", 0, ld_bc_a, 8 },     // 0x02
-	{ "INC BC", 0, NULL, 0 },        // 0x03
-	{ "INC B", 0, inc_b, 4 },         // 0x04
-	{ "DEC B", 0, dec_b, 4 },         // 0x05
-	{ "LD B,n", 1, ld_b_n, 4 },        // 0x06
-	{ "RLC A", 0, NULL, 0 },         // 0x07
-	{ "LD (nn),SP", 0, NULL, 0 },    // 0x08
-	{ "ADD HL,BC", 0, NULL, 0 },     // 0x09
+ 	{ "NOP", 0, nop, 4 },           // 0x00
+ 	{ "LD BC,nn", 2, ld_bc_nn, 12 },      // 0x01
+ 	{ "LD (BC),A", 0, ld_bc_a, 8 },     // 0x02
+ 	{ "INC BC", 0, inc_bc, 8 },        // 0x03
+ 	{ "INC B", 0, inc_b, 4 },         // 0x04
+ 	{ "DEC B", 0, dec_b, 4 },         // 0x05
+ 	{ "LD B,n", 1, ld_b_n, 8 },        // 0x06
+	{ "RLC A", 0, rlc_a, 4 },         // 0x07
+	{ "LD (nn),SP", 2, ld_nn_sp, 20 },    // 0x08
+	{ "ADD HL,BC", 0, add_hl_bc, 8 },     // 0x09
 	{ "LD A,(BC)", 0, NULL, 0 },     // 0x0a
-	{ "DEC BC", 0, NULL, 0 },        // 0x0b
+	{ "DEC BC", 0, dec_bc, 8 },        // 0x0b
 	{ "INC C", 0, inc_c, 4 },         // 0x0c
-	{ "DEC C", 0, NULL, 4 },         // 0x0d
-	{ "LD C,n", 1, ld_c_n, 4 },        // 0x0e
-	{ "RRC A", 0, NULL, 0 },         // 0x0f
+	{ "DEC C", 0, dec_c, 4 },         // 0x0d
+	{ "LD C,n", 1, ld_c_n, 8 },        // 0x0e
+	{ "RRC A", 0, rrc_a, 4 },         // 0x0f
 	{ "STOP", 0, NULL, 0 },          // 0x10
 	{ "LD DE,nn", 0, NULL, 0 },      // 0x11
 	{ "LD (DE),A", 0, NULL, 0 },     // 0x12
-	{ "INC DE", 0, NULL, 0 },        // 0x13
+	{ "INC DE", 0, inc_de, 8 },        // 0x13
 	{ "INC D", 0, inc_d, 4 },         // 0x14
 	{ "DEC D", 0, dec_d, 4 },         // 0x15
-	{ "LD D,n", 0, NULL, 0 },        // 0x16
-	{ "RL A", 0, NULL, 0 },          // 0x17
+	{ "LD D,n", 1, ld_d_n, 8 },        // 0x16
+	{ "RL A", 0, rl_a, 4 },          // 0x17
 	{ "JR n", 0, NULL, 0 },          // 0x18
-	{ "ADD HL,DE", 0, NULL, 0 },     // 0x19
+	{ "ADD HL,DE", 0, add_hl_de, 8 },     // 0x19
 	{ "LD A,(DE)", 0, ld_a_de, 8 },     // 0x1a
-	{ "DEC DE", 0, NULL, 0 },        // 0x1b
+	{ "DEC DE", 0, dec_de, 8 },        // 0x1b
 	{ "INC E", 0, inc_e, 4 },         // 0x1c
 	{ "DEC E", 0, dec_e, 4 },         // 0x1d
-	{ "LD E,n", 0, NULL, 0 },        // 0x1e
-	{ "RR A", 0, NULL, 0 },          // 0x1f
-	{ "JR NZ,n", 0, jr_nz_n, 0 },       // 0x20 TODO diff tick
+	{ "LD E,n", 1, ld_e_n, 8 },        // 0x1e
+	{ "RR A", 0, rr_a, 4 },          // 0x1f
+	{ "JR NZ,n", 1, jr_nz_n, 0 },       // 0x20 TODO diff tick
 	{ "LD HL,nn", 2, ld_hl_nn, 12 },      // 0x21
 	{ "LDI (HL),A", 0, NULL, 0 },    // 0x22
-	{ "INC HL", 0, NULL, 0 },        // 0x23
+	{ "INC HL", 0, inc_hl, 8 },        // 0x23
 	{ "INC H", 0, inc_h, 4 },         // 0x24
 	{ "DEC H", 0, dec_h, 4 },         // 0x25
-	{ "LD H,n", 0, NULL, 0 },        // 0x26
+	{ "LD H,n", 1, ld_h_n, 8 },        // 0x26
 	{ "DAA", 0, NULL, 0 },           // 0x27
 	{ "JR Z,n", 0, NULL, 0 },        // 0x28
-	{ "ADD HL,HL", 0, NULL, 0 },     // 0x29
+	{ "ADD HL,HL", 0, add_hl_hl, 8 },     // 0x29
 	{ "LDI A,(HL)", 0, NULL, 0 },    // 0x2a
-	{ "DEC HL", 0, NULL, 0 },        // 0x2b
+	{ "DEC HL", 0, dec_hl, 8 },        // 0x2b
 	{ "INC L", 0, inc_l, 4 },         // 0x2c
 	{ "DEC L", 0, dec_l, 4 },         // 0x2d
-	{ "LD L,n", 0, NULL, 0 },        // 0x2e
+	{ "LD L,n", 1, ld_l_n, 8 },        // 0x2e
 	{ "CPL", 0, NULL, 0 },           // 0x2f
 	{ "JR NC,n", 0, NULL, 0 },       // 0x30
 	{ "LD SP,nn", 0, NULL, 0 },      // 0x31
 	{ "LDD (HL),A", 0, ldd_hl_a, 8 },    // 0x32
-	{ "INC SP", 0, NULL, 0 },        // 0x33
+	{ "INC SP", 0, inc_sp, 8 },        // 0x33
 	{ "INC (HL)", 0, NULL, 0 },      // 0x34
 	{ "DEC (HL)", 0, NULL, 0 },      // 0x35
 	{ "LD (HL),n", 0, NULL, 0 },     // 0x36
 	{ "SCF", 0, NULL, 0 },           // 0x37
 	{ "JR C,n", 0, NULL, 0 },        // 0x38
-	{ "ADD HL,SP", 0, NULL, 0 },     // 0x39
+	{ "ADD HL,SP", 0, add_hl_sp, 8 },     // 0x39
 	{ "LDD A,(HL)", 0, NULL, 0 },    // 0x3a
-	{ "DEC SP", 0, NULL, 0 },        // 0x3b
+	{ "DEC SP", 0, dec_sp, 8 },        // 0x3b
 	{ "INC A", 0, inc_a, 4 },         // 0x3c
 	{ "DEC A", 0, dec_a, 4 },         // 0x3d
-	{ "LD A,n", 0, NULL, 0 },        // 0x3e
+	{ "LD A,n", 1, ld_a_n, 8 },        // 0x3e
 	{ "CCF", 0, NULL, 0 },           // 0x3f
 	{ "LD B,B", 0, nop, 4 },        // 0x40
 	{ "LD B,C", 0, ld_b_c, 4 },        // 0x41
@@ -254,12 +430,12 @@ const t_opcode	opcodes[] = {
 	{ "LD L,L", 0, nop, 4 },        // 0x6d
 	{ "LD L,(HL)", 0, NULL, 0 },     // 0x6e
 	{ "LD L,A", 0, ld_l_a, 4 },        // 0x6f
-	{ "LD (HL),B", 0, NULL, 0 },     // 0x70
-	{ "LD (HL),C", 0, NULL, 0 },     // 0x71
-	{ "LD (HL),D", 0, NULL, 0 },     // 0x72
-	{ "LD (HL),E", 0, NULL, 0 },     // 0x73
-	{ "LD (HL),H", 0, NULL, 0 },     // 0x74
-	{ "LD (HL),L", 0, NULL, 0 },     // 0x75
+	{ "LD (HL),B", 0, ld_hl_b, 8 },     // 0x70
+	{ "LD (HL),C", 0, ld_hl_c, 8 },     // 0x71
+	{ "LD (HL),D", 0, ld_hl_d, 8 },     // 0x72
+	{ "LD (HL),E", 0, ld_hl_e, 8 },     // 0x73
+	{ "LD (HL),H", 0, ld_hl_h, 8 },     // 0x74
+	{ "LD (HL),L", 0, ld_hl_l, 8 },     // 0x75
 	{ "HALT", 0, NULL, 0 },          // 0x76
 	{ "LD (HL),A", 0, NULL, 0 },     // 0x77
 	{ "LD A,B", 0, ld_a_b, 4 },        // 0x78
@@ -278,14 +454,14 @@ const t_opcode	opcodes[] = {
 	{ "ADD A,L", 0, NULL, 0 },       // 0x85
 	{ "ADD A,(HL)", 0, NULL, 0 },    // 0x86
 	{ "ADD A,A", 0, NULL, 0 },       // 0x87
-	{ "ADC A,B", 0, NULL, 0 },       // 0x88
-	{ "ADC A,C", 0, NULL, 0 },       // 0x89
-	{ "ADC A,D", 0, NULL, 0 },       // 0x8a
-	{ "ADC A,E", 0, NULL, 0 },       // 0x8b
-	{ "ADC A,H", 0, NULL, 0 },       // 0x8c
-	{ "ADC A,L", 0, NULL, 0 },       // 0x8d
+	{ "ADC A,B", 0, adc_a_b, 4 },       // 0x88
+	{ "ADC A,C", 0, adc_a_c, 4 },       // 0x89
+	{ "ADC A,D", 0, adc_a_d, 4 },       // 0x8a
+	{ "ADC A,E", 0, adc_a_e, 4 },       // 0x8b
+	{ "ADC A,H", 0, adc_a_h, 4 },       // 0x8c
+	{ "ADC A,L", 0, adc_a_l, 4 },       // 0x8d
 	{ "ADC A,(HL)", 0, NULL, 0 },    // 0x8e
-	{ "ADC A,A", 0, NULL, 0 },       // 0x8f
+	{ "ADC A,A", 0, adc_a_a, 4 },       // 0x8f
 	{ "SUB A,B", 0, NULL, 0 },       // 0x90
 	{ "SUB A,C", 0, NULL, 0 },       // 0x91
 	{ "SUB A,D", 0, NULL, 0 },       // 0x92
@@ -341,7 +517,7 @@ const t_opcode	opcodes[] = {
 	{ "CALL NZ,nn", 0, NULL, 0 },    // 0xc4
 	{ "PUSH BC", 0, NULL, 0 },       // 0xc5
 	{ "ADD A,n", 0, NULL, 0 },       // 0xc6
-	{ "RST 0", 0, NULL, 0 },         // 0xc7
+	{ "RST 0", 0, rst_00, 32 },         // 0xc7
 	{ "RET Z", 0, NULL, 0 },         // 0xc8
 	{ "RET", 0, NULL, 0 },           // 0xc9
 	{ "JP Z,nn", 0, NULL, 0 },       // 0xca
@@ -349,7 +525,7 @@ const t_opcode	opcodes[] = {
 	{ "CALL Z,nn", 0, NULL, 0 },     // 0xcc
 	{ "CALL nn", 0, NULL, 0 },       // 0xcd
 	{ "ADC A,n", 0, NULL, 0 },       // 0xce
-	{ "RST 8", 0, NULL, 0 },         // 0xcf
+	{ "RST 8", 0, rst_08, 32 },         // 0xcf
 	{ "RET NC", 0, NULL, 0 },        // 0xd0
 	{ "POP DE", 0, NULL, 0 },        // 0xd1
 	{ "JP NC,nn", 0, NULL, 0 },      // 0xd2
@@ -357,7 +533,7 @@ const t_opcode	opcodes[] = {
 	{ "CALL NC,nn", 0, NULL, 0 },    // 0xd4
 	{ "PUSH DE", 0, NULL, 0 },       // 0xd5
 	{ "SUB A,n", 0, NULL, 0 },       // 0xd6
-	{ "RST 10", 0, NULL, 0 },        // 0xd7
+	{ "RST 10", 0, rst_10, 32 },        // 0xd7
 	{ "RET C", 0, NULL, 0 },         // 0xd8
 	{ "RETI", 0, NULL, 0 },          // 0xd9
 	{ "JP C,nn", 0, NULL, 0 },       // 0xda
@@ -365,15 +541,15 @@ const t_opcode	opcodes[] = {
 	{ "CALL C,nn", 0, NULL, 0 },     // 0xdc
 	{ "XX", 0, NULL, 0 },            // 0xdd
 	{ "SBC A,n", 0, NULL, 0 },       // 0xde
-	{ "RST 18", 0, NULL, 0 },        // 0xdf
-	{ "LDH (n),A", 0, NULL, 0 },     // 0xe0
+	{ "RST 18", 0, rst_18, 32 },        // 0xdf
+	{ "LDH (n),A", 1, ldh_n_a, 12 },     // 0xe0
 	{ "POP HL", 0, NULL, 0 },        // 0xe1
 	{ "LDH (C),A", 0, NULL, 0 },     // 0xe2
 	{ "XX", 0, NULL, 0 },            // 0xe3
 	{ "XX", 0, NULL, 0 },            // 0xe4
 	{ "PUSH HL", 0, NULL, 0 },       // 0xe5
 	{ "AND n", 0, NULL, 0 },         // 0xe6
-	{ "RST 20", 0, NULL, 0 },        // 0xe7
+	{ "RST 20", 0, rst_20, 32 },        // 0xe7
 	{ "ADD SP,d", 0, NULL, 0 },      // 0xe8
 	{ "JP (HL)", 0, NULL, 0 },       // 0xe9
 	{ "LD (nn),A", 0, NULL, 0 },     // 0xea
@@ -381,23 +557,23 @@ const t_opcode	opcodes[] = {
 	{ "XX", 0, NULL, 0 },            // 0xec
 	{ "XX", 0, NULL, 0 },            // 0xed
 	{ "XOR n", 0, NULL, 0 },         // 0xee
-	{ "RST 28", 0, NULL, 0 },        // 0xef
+	{ "RST 28", 0, rst_28, 32 },        // 0xef
 	{ "LDH A,(n)", 1, ldh_a_n, 12 },     // 0xf0
 	{ "POP AF", 0, NULL, 0 },        // 0xf1
 	{ "XX", 0, NULL, 0 },            // 0xf2
-	{ "DI", 0, NULL, 0 },            // 0xf3
+	{ "DI", 0, interrupt_disable, 4 },            // 0xf3
 	{ "XX", 0, NULL, 0 },            // 0xf4
 	{ "PUSH AF", 0, NULL, 0 },       // 0xf5
 	{ "OR n", 0, NULL, 0 },          // 0xf6
-	{ "RST 30", 0, NULL, 0 },        // 0xf7
+	{ "RST 30", 0, rst_30, 32 },        // 0xf7
 	{ "LDHL SP,d", 0, NULL, 0 },     // 0xf8
 	{ "LD SP,HL", 0, NULL, 0 },      // 0xf9
 	{ "LD A,(nn)", 0, NULL, 0 },     // 0xfa
-	{ "EI", 0, NULL, 0 },            // 0xfb
+	{ "EI", 0, interrupt_enable, 4 },            // 0xfb
 	{ "XX", 0, NULL, 0 },            // 0xfc
 	{ "XX", 0, NULL, 0 },            // 0xfd
-	{ "CP n", 0, NULL, 0 },          // 0xfe
-	{ "RST 38", 0, NULL, 0 }         // 0xff
+	{ "CP n", 1, cp_n, 8 },          // 0xfe
+	{ "RST 38", 0, rst_38, 32 }         // 0xff
 };
 
 const t_opcode	cb_opcode[] = {

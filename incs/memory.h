@@ -19,6 +19,7 @@ typedef union			u_memory {
 }							t_memory;
 
 extern t_memory				mem;
+extern t_vector				*rom;
 
 void						memory_reset(void);
 
