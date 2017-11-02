@@ -14,5 +14,8 @@ void			debugger_del(t_debugger *this)
 	if (this->font) {
 		TTF_CloseFont(this->font);
 	}
+	if (this->scroll_xxd) {
+		scroll_del(this->scroll_xxd);
+	}
 	free(this);
 }

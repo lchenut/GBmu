@@ -17,6 +17,7 @@ t_debugger		*debugger_new(void)
 		exit(1);
 	}
 	this->font = TTF_OpenFont("/Library/Fonts/Courier New.ttf", 12);
+	this->scroll_xxd = scroll_new(4096, 80, 350, 10, 20, 1133);
 	SDL_SetRenderDrawColor(this->renderer, 255, 255, 255, 255);
 	SDL_RenderClear(this->renderer);
 	SDL_RenderPresent(this->renderer);
