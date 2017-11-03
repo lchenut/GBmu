@@ -25,7 +25,7 @@ static void		fill_rom_vector(t_prog *this)
 		return ;
 	}
 	memmove(mem.cart, vector_get_first(rom), 0x4000);
-	memmove(mem.cart + 4000, vector_get(rom, 1), 0x4000);
+	memmove(mem.cart + 0x4000, vector_get(rom, 1), 0x4000);
 }
 
 static void		video_init(t_prog *this)

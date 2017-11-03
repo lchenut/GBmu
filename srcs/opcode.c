@@ -1,3 +1,4 @@
+#include "opcodes.h"
 #include "basics.h"
 #include "registers.h"
 #include "memory.h"
@@ -8,8 +9,6 @@ typedef struct	s_opcode {
 	void		*fn;
 	size_t		clock;
 }				t_opcode;
-
-size_t			total_clock;
 
 unsigned char	add(unsigned char v1, unsigned char v2)
 {
@@ -108,7 +107,7 @@ unsigned char	dec(unsigned char value)
 /* 0x1d */ void dec_e(void) { reg.e = dec(reg.e); }
 /* 0x1e */ void ld_e_n(unsigned char op) { reg.e = op; }
 /* 0x1f */ void rr_a(void) { unsigned char c; c = FLAG_CARRY << 7; SET_CARRY_IF(reg.a & 1); reg.a = (reg.a >> 1) | c; SET_ZERO_IF(c == 0); UNSET_FLAG_NEG; UNSET_FLAG_HALF; }
-/* 0x20 */ void jr_nz_n(unsigned char op) { if (FLAG_ZERO) { ; } else { printf("%hx :: %hhi\n", reg.pc, (signed char)op); reg.pc += (signed char)op; } } // TODO if (0) 8 clock else 12 clock
+/* 0x20 */ void jr_nz_n(unsigned char op) { if (!FLAG_ZERO) { reg.pc += (signed char)op; total_clock += 4; last_clock += 4; } }
 /* 0x21 */ void ld_hl_nn(unsigned short op) { reg.hl = op; }
 /* 0x22 */
 /* 0x23 */ void inc_hl(void) { reg.hl += 1; }
@@ -366,7 +365,7 @@ const t_opcode	opcodes[] = {
 	{ "DEC E", 0, dec_e, 4 },         // 0x1d
 	{ "LD E,n", 1, ld_e_n, 8 },        // 0x1e
 	{ "RR A", 0, rr_a, 4 },          // 0x1f
-	{ "JR NZ,n", 1, jr_nz_n, 0 },       // 0x20 TODO diff tick
+	{ "JR NZ,n", 1, jr_nz_n, 8 },       // 0x20
 	{ "LD HL,nn", 2, ld_hl_nn, 12 },      // 0x21
 	{ "LDI (HL),A", 0, NULL, 0 },    // 0x22
 	{ "INC HL", 0, inc_hl, 8 },        // 0x23
@@ -851,11 +850,19 @@ const t_opcode	cb_opcode[] = {
 	{ "SET 7,A", 0, NULL, 0 },       // 0xff
 };
 
+size_t			total_clock = 0;
+size_t			last_clock = 0;
+bool			should_enable_interrupt = false;
+bool			should_disable_interrupt = false;
+bool			master_interrupt = false;
+
 void			next_opcode(void)
 {
 	const t_opcode	*op;
 
 	op = opcodes + mem.memory[reg.pc];
+	total_clock += op->clock;
+	last_clock = op->clock;
 	if (op->fn == NULL) {
 		printf("-> %s (0x%02hhx) TODO\n", op->name, mem.memory[reg.pc]);
 		exit(0);
@@ -872,5 +879,12 @@ void			next_opcode(void)
 		reg.pc += 3;
 		((void (*)(unsigned short))(op->fn))(*((unsigned short *)(mem.memory + reg.pc - 2)));
 	}
-	total_clock += op->clock;
+	if (should_disable_interrupt && op != opcodes + 0xf3) {
+		master_interrupt = false;
+		should_enable_interrupt = false;
+	}
+	if (should_enable_interrupt && op != opcodes + 0xfb) {
+		master_interrupt = true;
+		should_enable_interrupt = false;
+	}
 }
