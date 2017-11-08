@@ -3,6 +3,12 @@
 #include "registers.h"
 #include "memory.h"
 
+size_t			total_clock = 0;
+size_t			last_clock = 0;
+bool			should_enable_interrupt = false;
+bool			should_disable_interrupt = false;
+bool			master_interrupt = false;
+
 typedef struct	s_opcode {
 	char		*name;
 	size_t		argument;
@@ -343,68 +349,68 @@ unsigned char	dec(unsigned char value)
 /* 0xbd */ void cp_l(void) { cp(reg.l); }
 /* 0xbe */ void cp_hl(void) { cp(memory_read_byte(reg.hl)); }
 /* 0xbf */ void cp_a(void) { cp(reg.a); }
-/* 0xc0 */
-/* 0xc1 */
+/* 0xc0 */ void ret_nz(void) { if (!FLAG_ZERO) { reg.pc = memory_pop_word_from_stack(); } }
+/* 0xc1 */ void pop_bc(void) { reg.bc = memory_pop_word_from_stack(); }
 /* 0xc2 */ void jp_nz_nn(unsigned short op) { if (!FLAG_ZERO) { reg.pc = op; } }
 /* 0xc3 */ void jp_nn(unsigned short op) { reg.pc = op; }
-/* 0xc4 */
-/* 0xc5 */
+/* 0xc4 */ void call_nz_nn(unsigned short op) { if (!FLAG_ZERO) { memory_push_word_on_stack(reg.pc); reg.pc = op; } }
+/* 0xc5 */ void push_bc(void) { memory_push_word_on_stack(reg.bc); }
 /* 0xc6 */ void add_a_n(unsigned char op) { reg.a = add(reg.a, op); }
 /* 0xc7 */ void rst_00(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x00; }
-/* 0xc8 */
-/* 0xc9 */
+/* 0xc8 */ void ret_z(void) { if (FLAG_ZERO) { reg.pc = memory_pop_word_from_stack(); } }
+/* 0xc9 */ void ret(void) { reg.pc = memory_pop_word_from_stack(); }
 /* 0xca */ void jp_z_nn(unsigned short op) { if (FLAG_ZERO) { reg.pc = op; } }
 /* 0xcb */
-/* 0xcc */
-/* 0xcd */
+/* 0xcc */ void call_z_nn(unsigned short op) { if (FLAG_ZERO) { memory_push_word_on_stack(reg.pc); reg.pc = op; } }
+/* 0xcd */ void call_nn(unsigned short op) { memory_push_word_on_stack(reg.pc); reg.pc = op; }
 /* 0xce */ void adc_a_n(unsigned char op) { add_carry(op); }
 /* 0xcf */ void rst_08(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x08; }
-/* 0xd0 */
-/* 0xd1 */
+/* 0xd0 */ void ret_nc(void) { if (!FLAG_CARRY) { reg.pc = memory_pop_word_from_stack(); } }
+/* 0xd1 */ void pop_de(void) { reg.de = memory_pop_word_from_stack(); }
 /* 0xd2 */ void jp_nc_nn(unsigned short op) { if (!FLAG_CARRY) { reg.pc = op; } }
-/* 0xd3 */
-/* 0xd4 */
-/* 0xd5 */
+/* 0xd3 */ void bad_instruction_d3(void) { printf("/!\\ BAD INSTRUCTION D3 /!\\\n"); }
+/* 0xd4 */ void call_nc_nn(unsigned short op) { if (!FLAG_CARRY) { memory_push_word_on_stack(reg.pc); reg.pc = op; } }
+/* 0xd5 */ void push_de(void) { memory_push_word_on_stack(reg.de); }
 /* 0xd6 */ void sub_a_n(unsigned char op) { reg.a = sub(reg.a, op); }
 /* 0xd7 */ void rst_10(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x10; }
-/* 0xd8 */
-/* 0xd9 */
+/* 0xd8 */ void ret_c(void) { if (FLAG_CARRY) { reg.pc = memory_pop_word_from_stack(); } }
+/* 0xd9 */ void reti(void) { reg.pc = memory_pop_word_from_stack(); should_enable_interrupt = true; } // TODO Verif
 /* 0xda */ void jp_c_nn(unsigned short op) { if (FLAG_CARRY) { reg.pc = op; } }
-/* 0xdb */
-/* 0xdc */
-/* 0xdd */
+/* 0xdb */ void bad_instruction_db(void) { printf("/!\\ BAD INSTRUCTION DB /!\\\n"); }
+/* 0xdc */ void call_c_nn(unsigned short op) { if (FLAG_CARRY) { memory_push_word_on_stack(reg.pc); reg.pc = op; } }
+/* 0xdd */ void bad_instruction_dd(void) { printf("/!\\ BAD INSTRUCTION DD /!\\\n"); }
 /* 0xde */ void sbc_a_n(unsigned char op) { sub_carry(op); }
 /* 0xdf */ void rst_18(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x18; }
 /* 0xe0 */ void ldh_n_a(unsigned char op) { memory_write_word(0xff00 | op, reg.a); }
-/* 0xe1 */
-/* 0xe2 */
-/* 0xe3 */
-/* 0xe4 */
-/* 0xe5 */
+/* 0xe1 */ void pop_hl(void) { reg.hl = memory_pop_word_from_stack(); }
+/* 0xe2 */ void ldh_c_a(void) { memory_write_byte(0xff00 | reg.c, reg.a); }
+/* 0xe3 */ void bad_instruction_e3(void) { printf("/!\\ BAD INSTRUCTION E3 /!\\\n"); }
+/* 0xe4 */ void bad_instruction_e4(void) { printf("/!\\ BAD INSTRUCTION E4 /!\\\n"); }
+/* 0xe5 */ void push_hl(void) { memory_push_word_on_stack(reg.hl); }
 /* 0xe6 */ void and_n(unsigned char op) { and(op); }
 /* 0xe7 */ void rst_20(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x20; }
-/* 0xe8 */
-/* 0xe9 */
+/* 0xe8 */ void add_sp_n(unsigned char op) { reg.sp += (signed char)op; }
+/* 0xe9 */ void jp_hl(void) { reg.pc = memory_read_word(reg.pc); }
 /* 0xea */ void ld_nn_a(unsigned short op) { memory_write_byte(op, reg.a); }
-/* 0xeb */
-/* 0xec */
-/* 0xed */
+/* 0xeb */ void bad_instruction_eb(void) { printf("/!\\ BAD INSTRUCTION EB /!\\\n"); }
+/* 0xec */ void bad_instruction_ec(void) { printf("/!\\ BAD INSTRUCTION EC /!\\\n"); }
+/* 0xed */ void bad_instruction_ed(void) { printf("/!\\ BAD INSTRUCTION ED /!\\\n"); }
 /* 0xee */ void xor_n(unsigned char op) { xor(op); }
 /* 0xef */ void rst_28(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x28; }
 /* 0xf0 */ void ldh_a_n(unsigned char op) { reg.a = memory_read_byte(0xff00 | op); }
-/* 0xf1 */
-/* 0xf2 */
-/* 0xf3 */ void interrupt_disable(void) { printf("\033[31mINTERRUPT DISABLE (TODO)\033[m\n"); }
-/* 0xf4 */
-/* 0xf5 */
+/* 0xf1 */ void pop_af(void) { reg.af = memory_pop_word_from_stack(); }
+/* 0xf2 */ void ldh_a_c(void) { reg.a = memory_read_byte(0xff00 | reg.c); }
+/* 0xf3 */ void interrupt_disable(void) { should_disable_interrupt = true; }
+/* 0xf4 */ void bad_instruction_f4(void) { printf("/!\\ BAD INSTRUCTION F4 /!\\\n"); }
+/* 0xf5 */ void push_af(void) { memory_push_word_on_stack(reg.af); }
 /* 0xf6 */ void or_n(unsigned char op) { or(op); }
 /* 0xf7 */ void rst_30(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x30; }
-/* 0xf8 */
-/* 0xf9 */
+/* 0xf8 */ void ldhl_sp_n(unsigned char op) { int ret; ret = reg.sp + (signed char)op; SET_CARRY_IF(ret & 0xffff0000); SET_HALF_IF((reg.sp & 0x0f) + (op & 0x0f) > 0x0f); UNSET_FLAG_NEG; UNSET_FLAG_ZERO; reg.hl = (unsigned short)(ret & 0xffff); }
+/* 0xf9 */ void ld_sp_hl(void) { reg.sp = reg.hl; }
 /* 0xfa */ void ld_a_nn(unsigned short op) { reg.a = memory_read_byte(op); }
-/* 0xfb */ void interrupt_enable(void) { printf("\033[32mINTERRUPT ENABLE (TODO)\033[m\n"); }
-/* 0xfc */
-/* 0xfd */
+/* 0xfb */ void interrupt_enable(void) { should_enable_interrupt = true; }
+/* 0xfc */ void bad_instruction_fc(void) { printf("/!\\ BAD INSTRUCTION FC /!\\\n"); }
+/* 0xfd */ void bad_instruction_fd(void) { printf("/!\\ BAD INSTRUCTION FD /!\\\n"); }
 /* 0xfe */ void cp_n(unsigned char op) { cp(op); }
 /* 0xff */ void rst_38(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x38; }
 
@@ -601,68 +607,68 @@ const t_opcode	opcodes[] = {
 	{ "CP L", 0, cp_l, 4 },          // 0xbd
 	{ "CP (HL)", 0, cp_hl, 8 },       // 0xbe
 	{ "CP A", 0, cp_a, 4 },          // 0xbf
-	{ "RET NZ", 0, NULL, 0 },        // 0xc0
-	{ "POP BC", 0, NULL, 0 },        // 0xc1
+	{ "RET NZ", 0, ret_nz, 8 },        // 0xc0
+	{ "POP BC", 0, pop_bc, 12 },        // 0xc1
 	{ "JP NZ,nn", 2, jp_nz_nn, 12 },      // 0xc2
 	{ "JP nn", 2, jp_nn, 16 },         // 0xc3
-	{ "CALL NZ,nn", 0, NULL, 0 },    // 0xc4
-	{ "PUSH BC", 0, NULL, 0 },       // 0xc5
+	{ "CALL NZ,nn", 2, call_nz_nn, 12 },    // 0xc4
+	{ "PUSH BC", 0, push_bc, 16 },       // 0xc5
 	{ "ADD A,n", 1, add_a_n, 8 },       // 0xc6
 	{ "RST 0", 0, rst_00, 32 },         // 0xc7
-	{ "RET Z", 0, NULL, 0 },         // 0xc8
-	{ "RET", 0, NULL, 0 },           // 0xc9
+	{ "RET Z", 0, ret_z, 8 },         // 0xc8
+	{ "RET", 0, ret, 8 },           // 0xc9
 	{ "JP Z,nn", 2, jp_z_nn, 12 },       // 0xca
 	{ "Ext ops", 0, NULL, 0 },       // 0xcb
-	{ "CALL Z,nn", 0, NULL, 0 },     // 0xcc
-	{ "CALL nn", 0, NULL, 0 },       // 0xcd
+	{ "CALL Z,nn", 2, call_z_nn, 12 },     // 0xcc
+	{ "CALL nn", 2, call_nn, 12 },       // 0xcd
 	{ "ADC A,n", 1, adc_a_n, 8 },       // 0xce
 	{ "RST 8", 0, rst_08, 32 },         // 0xcf
-	{ "RET NC", 0, NULL, 0 },        // 0xd0
-	{ "POP DE", 0, NULL, 0 },        // 0xd1
+	{ "RET NC", 0, ret_nc, 8 },        // 0xd0
+	{ "POP DE", 0, pop_de, 12 },        // 0xd1
 	{ "JP NC,nn", 2, jp_nc_nn, 12 },      // 0xd2
-	{ "XX", 0, NULL, 0 },            // 0xd3
-	{ "CALL NC,nn", 0, NULL, 0 },    // 0xd4
-	{ "PUSH DE", 0, NULL, 0 },       // 0xd5
+	{ "XX", 0, bad_instruction_d3, 0 },            // 0xd3
+	{ "CALL NC,nn", 2, call_nc_nn, 12 },    // 0xd4
+	{ "PUSH DE", 0, push_de, 16 },       // 0xd5
 	{ "SUB A,n", 1, sub_a_n, 8 },       // 0xd6
 	{ "RST 10", 0, rst_10, 32 },        // 0xd7
-	{ "RET C", 0, NULL, 0 },         // 0xd8
-	{ "RETI", 0, NULL, 0 },          // 0xd9
+	{ "RET C", 0, ret_c, 8 },         // 0xd8
+	{ "RETI", 0, reti, 8 },          // 0xd9
 	{ "JP C,nn", 2, jp_c_nn, 12 },       // 0xda
-	{ "XX", 0, NULL, 0 },            // 0xdb
-	{ "CALL C,nn", 0, NULL, 0 },     // 0xdc
-	{ "XX", 0, NULL, 0 },            // 0xdd
+	{ "XX", 0, bad_instruction_db, 0 },            // 0xdb
+	{ "CALL C,nn", 2, call_c_nn, 12 },     // 0xdc
+	{ "XX", 0, bad_instruction_dd, 0 },            // 0xdd
 	{ "SBC A,n", 1, sbc_a_n, 8 },       // 0xde
 	{ "RST 18", 0, rst_18, 32 },        // 0xdf
 	{ "LDH (n),A", 1, ldh_n_a, 12 },     // 0xe0
-	{ "POP HL", 0, NULL, 0 },        // 0xe1
-	{ "LDH (C),A", 0, NULL, 0 },     // 0xe2
-	{ "XX", 0, NULL, 0 },            // 0xe3
-	{ "XX", 0, NULL, 0 },            // 0xe4
-	{ "PUSH HL", 0, NULL, 0 },       // 0xe5
+	{ "POP HL", 0, pop_hl, 12 },        // 0xe1
+	{ "LDH (C),A", 0, ldh_c_a, 8 },     // 0xe2
+	{ "XX", 0, bad_instruction_e3, 0 },            // 0xe3
+	{ "XX", 0, bad_instruction_e4, 0 },            // 0xe4
+	{ "PUSH HL", 0, push_hl, 16 },       // 0xe5
 	{ "AND n", 1, and_n, 8 },         // 0xe6
 	{ "RST 20", 0, rst_20, 32 },        // 0xe7
-	{ "ADD SP,d", 0, NULL, 0 },      // 0xe8
-	{ "JP (HL)", 0, NULL, 0 },       // 0xe9
+	{ "ADD SP,n", 1, add_sp_n, 16 },      // 0xe8
+	{ "JP (HL)", 0, jp_hl, 4 },       // 0xe9
 	{ "LD (nn),A", 2, ld_nn_a, 16 },     // 0xea
-	{ "XX", 0, NULL, 0 },            // 0xeb
-	{ "XX", 0, NULL, 0 },            // 0xec
-	{ "XX", 0, NULL, 0 },            // 0xed
+	{ "XX", 0, bad_instruction_eb, 0 },            // 0xeb
+	{ "XX", 0, bad_instruction_ec, 0 },            // 0xec
+	{ "XX", 0, bad_instruction_ed, 0 },            // 0xed
 	{ "XOR n", 1, xor_n, 8 },         // 0xee
 	{ "RST 28", 0, rst_28, 32 },        // 0xef
 	{ "LDH A,(n)", 1, ldh_a_n, 12 },     // 0xf0
-	{ "POP AF", 0, NULL, 0 },        // 0xf1
-	{ "XX", 0, NULL, 0 },            // 0xf2
+	{ "POP AF", 0, pop_af, 12 },        // 0xf1
+	{ "LDH A,(C)", 0, ldh_a_c, 8 },            // 0xf2
 	{ "DI", 0, interrupt_disable, 4 },            // 0xf3
-	{ "XX", 0, NULL, 0 },            // 0xf4
-	{ "PUSH AF", 0, NULL, 0 },       // 0xf5
+	{ "XX", 0, bad_instruction_f4, 0 },            // 0xf4
+	{ "PUSH AF", 0, push_af, 16 },       // 0xf5
 	{ "OR n", 1, or_n, 8 },          // 0xf6
 	{ "RST 30", 0, rst_30, 32 },        // 0xf7
-	{ "LDHL SP,d", 0, NULL, 0 },     // 0xf8
-	{ "LD SP,HL", 0, NULL, 0 },      // 0xf9
+	{ "LDHL SP,n", 1, ldhl_sp_n, 12 },     // 0xf8
+	{ "LD SP,HL", 0, ld_sp_hl, 8 },      // 0xf9
 	{ "LD A,(nn)", 2, ld_a_nn, 16 },     // 0xfa
 	{ "EI", 0, interrupt_enable, 4 },            // 0xfb
-	{ "XX", 0, NULL, 0 },            // 0xfc
-	{ "XX", 0, NULL, 0 },            // 0xfd
+	{ "XX", 0, bad_instruction_fc, 0 },            // 0xfc
+	{ "XX", 0, bad_instruction_fd, 0 },            // 0xfd
 	{ "CP n", 1, cp_n, 8 },          // 0xfe
 	{ "RST 38", 0, rst_38, 32 }         // 0xff
 };
@@ -925,12 +931,6 @@ const t_opcode	cb_opcode[] = {
 	{ "SET 7,(HL)", 0, NULL, 0 },    // 0xfe
 	{ "SET 7,A", 0, NULL, 0 },       // 0xff
 };
-
-size_t			total_clock = 0;
-size_t			last_clock = 0;
-bool			should_enable_interrupt = false;
-bool			should_disable_interrupt = false;
-bool			master_interrupt = false;
 
 void			next_opcode(void)
 {
