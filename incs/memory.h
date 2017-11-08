@@ -29,4 +29,10 @@ void						memory_write_word(unsigned short address, unsigned short op);
 unsigned char				memory_read_byte(unsigned short address);
 unsigned short				memory_read_word(unsigned short address);
 
+void						memory_push_byte_on_stack(unsigned char op);
+void						memory_push_word_on_stack(unsigned short op);
+
+unsigned char				memory_pop_byte_from_stack(void);
+unsigned short				memory_pop_word_from_stack(void);
+
 #endif // MEMORY_H

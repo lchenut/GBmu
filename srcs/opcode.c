@@ -10,6 +10,32 @@ typedef struct	s_opcode {
 	size_t		clock;
 }				t_opcode;
 
+void			daa(void)
+{
+	unsigned short	new_a;
+
+	new_a = reg.a;
+	if (FLAG_ZERO) {
+		if (FLAG_HALF) {
+			new_a = (new_a - 6) & 0xFF;
+		}
+		if (FLAG_CARRY) {
+			new_a -= 0x60;
+		}
+	} else {
+		if (FLAG_HALF || (new_a & 0x0f) > 0x09) {
+			new_a += 0x06;
+		}
+		if (FLAG_CARRY || new_a > 0x9f) {
+			new_a += 0x60;
+		}
+	}
+	SET_ZERO_IF(new_a & 0xff);
+	UNSET_FLAG_HALF;
+	SET_CARRY_IF(new_a & 0xff00);
+	reg.a = ((unsigned char)(new_a & 0xff));
+}
+
 unsigned char	add(unsigned char v1, unsigned char v2)
 {
 	unsigned short	ret;
@@ -46,6 +72,40 @@ void			add_carry(unsigned char val)
 	reg.a = (unsigned char)(res & 0x00ff);
 }
 
+unsigned char	sub(unsigned char v1, unsigned char v2)
+{
+	unsigned short	ret;
+
+	SET_FLAG_NEG;
+	SET_CARRY_IF(v2 > v1);
+	SET_HALF_IF((v2 & 0x0f) > (v1 & 0x0f));
+	ret = v1 - v2;
+	SET_ZERO_IF((ret & 0x00ff) == 0);
+	return ((unsigned char)(ret & 0x00ff));
+}
+
+void			sub_carry(unsigned char val)
+{
+	unsigned short	ret;
+
+	ret = reg.a + FLAG_CARRY;
+	SET_FLAG_NEG;
+	SET_CARRY_IF((unsigned short)val > ret);
+	SET_HALF_IF((val & 0x0f) > (ret & 0x0f));
+	ret -= val;
+	SET_ZERO_IF((ret & 0x00ff) == 0);
+	reg.a = (unsigned char)(ret & 0x00ff);
+}
+
+void			and(unsigned char c)
+{
+	reg.a &= c;
+	SET_ZERO_IF(reg.a == 0);
+	UNSET_FLAG_NEG;
+	SET_FLAG_HALF;
+	UNSET_FLAG_CARRY;
+}
+
 void			xor(unsigned char c)
 {
 	reg.a ^= c;
@@ -53,6 +113,23 @@ void			xor(unsigned char c)
 	UNSET_FLAG_NEG;
 	UNSET_FLAG_HALF;
 	UNSET_FLAG_CARRY;
+}
+
+void			or(unsigned char c)
+{
+	reg.a |= c;
+	SET_ZERO_IF(reg.a == 0);
+	UNSET_FLAG_NEG;
+	UNSET_FLAG_HALF;
+	UNSET_FLAG_CARRY;
+}
+
+void			cp(unsigned char c)
+{
+	SET_ZERO_IF(reg.a == c);
+	SET_CARRY_IF(reg.a <= c);
+	SET_HALF_IF((reg.a & 0x0f) > (c & 0x0f));
+	SET_FLAG_NEG;
 }
 
 unsigned char	inc(unsigned char value)
@@ -70,14 +147,13 @@ unsigned char	dec(unsigned char value)
 	SET_HALF_IF(value & 0x0f);
 	value -= 1;
 	SET_ZERO_IF(value == 0);
-	printf("==> value: %hhu\n", value);
 	SET_FLAG_NEG;
 	return (value);
 }
 
 /* 0x00 */ void nop(void) { }
 /* 0x01 */ void ld_bc_nn(unsigned short op) { reg.bc = op; }
-/* 0x02 */ void ld_bc_a(void) { printf("0x%04hx\n", reg.bc); memory_write_byte(reg.bc, reg.a); }
+/* 0x02 */ void ld_bc_a(void) { memory_write_byte(reg.bc, reg.a); }
 /* 0x03 */ void inc_bc(void) { reg.bc += 1; }
 /* 0x04 */ void inc_b(void) { reg.b = inc(reg.b); }
 /* 0x05 */ void dec_b(void) { reg.b = dec(reg.b); }
@@ -99,7 +175,7 @@ unsigned char	dec(unsigned char value)
 /* 0x15 */ void dec_d(void) { reg.d = dec(reg.d); }
 /* 0x16 */ void ld_d_n(unsigned char op) { reg.d = op; }
 /* 0x17 */ void rl_a(void) { unsigned char c; c = FLAG_CARRY; SET_CARRY_IF((reg.a >> 7) & 1); reg.a = (reg.a << 1) | c; SET_ZERO_IF(c == 0); UNSET_FLAG_NEG; UNSET_FLAG_HALF; }
-/* 0x18 */
+/* 0x18 */ void jr_n(unsigned char op) { reg.pc += (signed char) op; }
 /* 0x19 */ void add_hl_de(void) { add_reg_val(&(reg.hl), reg.de); }
 /* 0x1a */ void ld_a_de(void) { reg.a = memory_read_byte(reg.de); }
 /* 0x1b */ void dec_de(void) { reg.de -= 1; }
@@ -109,36 +185,36 @@ unsigned char	dec(unsigned char value)
 /* 0x1f */ void rr_a(void) { unsigned char c; c = FLAG_CARRY << 7; SET_CARRY_IF(reg.a & 1); reg.a = (reg.a >> 1) | c; SET_ZERO_IF(c == 0); UNSET_FLAG_NEG; UNSET_FLAG_HALF; }
 /* 0x20 */ void jr_nz_n(unsigned char op) { if (!FLAG_ZERO) { reg.pc += (signed char)op; total_clock += 4; last_clock += 4; } }
 /* 0x21 */ void ld_hl_nn(unsigned short op) { reg.hl = op; }
-/* 0x22 */
+/* 0x22 */ void ldi_hl_a(void) { memory_write_byte(reg.hl, reg.a); reg.hl = inc(reg.hl); }
 /* 0x23 */ void inc_hl(void) { reg.hl += 1; }
 /* 0x24 */ void inc_h(void) { reg.h = inc(reg.h); }
 /* 0x25 */ void dec_h(void) { reg.h = dec(reg.h); }
 /* 0x26 */ void ld_h_n(unsigned char op) { reg.h = op; }
-/* 0x27 */
-/* 0x28 */
+/* 0x27 */ void daa_(void) { daa(); }
+/* 0x28 */ void jr_z_n(unsigned char op) { if (FLAG_ZERO) { reg.pc += (signed char)op; total_clock += 4; last_clock += 4; } }
 /* 0x29 */ void add_hl_hl(void) { add_reg_val(&(reg.hl), reg.hl); }
-/* 0x2a */
+/* 0x2a */ void ldi_a_hl(void) { reg.a = memory_read_byte(reg.hl); reg.hl = inc(reg.hl); }
 /* 0x2b */ void dec_hl(void) { reg.hl -= 1; }
 /* 0x2c */ void inc_l(void) { reg.l = inc(reg.l); }
 /* 0x2d */ void dec_l(void) { reg.l = dec(reg.l); }
 /* 0x2e */ void ld_l_n(unsigned char op) { reg.l = op; }
-/* 0x2f */
-/* 0x30 */
+/* 0x2f */ void cpl(void) { reg.a = ~reg.a; SET_FLAG_NEG; SET_FLAG_HALF; }
+/* 0x30 */ void jr_nc_n(unsigned char op) { if (!FLAG_CARRY) { reg.pc += (signed char)op; total_clock += 4; last_clock += 4; } }
 /* 0x31 */ void ld_sp_nn(unsigned short op) { reg.sp = op; }
-/* 0x32 */ void ldd_hl_a(void) { memory_write_byte(reg.hl, reg.a); reg.hl -= 1; }
+/* 0x32 */ void ldd_hl_a(void) { memory_write_byte(reg.hl, reg.a); reg.hl = dec(reg.hl); }
 /* 0x33 */ void inc_sp(void) { reg.sp += 1; }
-/* 0x34 */
-/* 0x35 */
+/* 0x34 */ void inc_hlp(void) { memory_write_byte(reg.hl, inc(memory_read_byte(reg.hl))); }
+/* 0x35 */ void dec_hlp(void) { memory_write_byte(reg.hl, dec(memory_read_byte(reg.hl))); }
 /* 0x36 */ void ld_hl_n(unsigned char op) { memory_write_byte(reg.hl, op); }
-/* 0x37 */
-/* 0x38 */
+/* 0x37 */ void scf(void) { SET_FLAG_CARRY; UNSET_FLAG_NEG; UNSET_FLAG_HALF; }
+/* 0x38 */ void jr_c_n(unsigned char op) { if (FLAG_CARRY) { reg.pc += (signed char)op; total_clock += 4; last_clock += 4; } }
 /* 0x39 */ void add_hl_sp(void) { add_reg_val(&(reg.hl), reg.sp); }
-/* 0x3a */
+/* 0x3a */ void ldd_a_hl(void) { reg.a = memory_read_byte(reg.hl); reg.hl = dec(reg.hl); }
 /* 0x3b */ void dec_sp(void) { reg.sp -= 1; }
 /* 0x3c */ void inc_a(void) { reg.a = inc(reg.a); }
 /* 0x3d */ void dec_a(void) { reg.a = dec(reg.a); }
 /* 0x3e */ void ld_a_n(unsigned char op) { reg.a = op; }
-/* 0x3f */
+/* 0x3f */ void ccf(void) { SET_CARRY_IF(!FLAG_CARRY); UNSET_FLAG_NEG; UNSET_FLAG_HALF; }
 /* 0x40 */ void ld_b_b(void) { reg.b = reg.b; }
 /* 0x41 */ void ld_b_c(void) { reg.b = reg.c; }
 /* 0x42 */ void ld_b_d(void) { reg.b = reg.d; }
@@ -219,57 +295,57 @@ unsigned char	dec(unsigned char value)
 /* 0x8d */ void adc_a_l(void) { add_carry(reg.l); }
 /* 0x8e */ void adc_a_hl(void) { add_carry(memory_read_byte(reg.hl)); }
 /* 0x8f */ void adc_a_a(void) { add_carry(reg.a); }
-/* 0x90 */
-/* 0x91 */
-/* 0x92 */
-/* 0x93 */
-/* 0x94 */
-/* 0x95 */
-/* 0x96 */
-/* 0x97 */
-/* 0x98 */
-/* 0x99 */
-/* 0x9a */
-/* 0x9b */
-/* 0x9c */
-/* 0x9d */
-/* 0x9e */
-/* 0x9f */
-/* 0xa0 */ 
-/* 0xa1 */ 
-/* 0xa2 */ 
-/* 0xa3 */ 
-/* 0xa4 */ 
-/* 0xa5 */ 
-/* 0xa6 */ 
-/* 0xa7 */
+/* 0x90 */ void sub_a_b(void) { reg.a = sub(reg.a, reg.b); }
+/* 0x91 */ void sub_a_c(void) { reg.a = sub(reg.a, reg.c); }
+/* 0x92 */ void sub_a_d(void) { reg.a = sub(reg.a, reg.d); }
+/* 0x93 */ void sub_a_e(void) { reg.a = sub(reg.a, reg.e); }
+/* 0x94 */ void sub_a_h(void) { reg.a = sub(reg.a, reg.h); }
+/* 0x95 */ void sub_a_l(void) { reg.a = sub(reg.a, reg.l); }
+/* 0x96 */ void sub_a_hl(void) { reg.a = sub(reg.a, memory_read_byte(reg.hl)); }
+/* 0x97 */ void sub_a_a(void) { reg.a = sub(reg.a, reg.a); }
+/* 0x98 */ void sbc_a_b(void) { sub_carry(reg.b); }
+/* 0x99 */ void sbc_a_c(void) { sub_carry(reg.c); }
+/* 0x9a */ void sbc_a_d(void) { sub_carry(reg.d); }
+/* 0x9b */ void sbc_a_e(void) { sub_carry(reg.e); }
+/* 0x9c */ void sbc_a_h(void) { sub_carry(reg.h); }
+/* 0x9d */ void sbc_a_l(void) { sub_carry(reg.l); }
+/* 0x9e */ void sbc_a_hl(void) { sub_carry(memory_read_byte(reg.hl)); }
+/* 0x9f */ void sbc_a_a(void) { sub_carry(reg.a); }
+/* 0xa0 */ void and_b(void) { and(reg.b); }
+/* 0xa1 */ void and_c(void) { and(reg.c); }
+/* 0xa2 */ void and_d(void) { and(reg.d); }
+/* 0xa3 */ void and_e(void) { and(reg.e); }
+/* 0xa4 */ void and_h(void) { and(reg.h); }
+/* 0xa5 */ void and_l(void) { and(reg.l); }
+/* 0xa6 */ void and_hl(void) { and(memory_read_byte(reg.hl)); }
+/* 0xa7 */ void and_a(void) { and(reg.a); }
 /* 0xa8 */ void xor_b(void) { xor(reg.b); }
 /* 0xa9 */ void xor_c(void) { xor(reg.c); }
 /* 0xaa */ void xor_d(void) { xor(reg.d); }
 /* 0xab */ void xor_e(void) { xor(reg.e); }
 /* 0xac */ void xor_h(void) { xor(reg.h); }
 /* 0xad */ void xor_l(void) { xor(reg.l); }
-/* 0xae */ void xor_a(void) { xor(reg.a); }
-/* 0xaf */
-/* 0xb0 */
-/* 0xb1 */
-/* 0xb2 */
-/* 0xb3 */
-/* 0xb4 */
-/* 0xb5 */
-/* 0xb6 */
-/* 0xb7 */
-/* 0xb8 */
-/* 0xb9 */
-/* 0xba */ 
-/* 0xbb */
-/* 0xbc */
-/* 0xbd */
-/* 0xbe */
-/* 0xbf */
+/* 0xae */ void xor_hl(void) { xor(memory_read_byte(reg.hl)); }
+/* 0xaf */ void xor_a(void) { xor(reg.a); }
+/* 0xb0 */ void or_b(void) { or(reg.b); }
+/* 0xb1 */ void or_c(void) { or(reg.c); }
+/* 0xb2 */ void or_d(void) { or(reg.d); }
+/* 0xb3 */ void or_e(void) { or(reg.e); }
+/* 0xb4 */ void or_h(void) { or(reg.h); }
+/* 0xb5 */ void or_l(void) { or(reg.l); }
+/* 0xb6 */ void or_hl(void) { or(memory_read_byte(reg.hl)); }
+/* 0xb7 */ void or_a(void) { or(reg.a); }
+/* 0xb8 */ void cp_b(void) { cp(reg.b); }
+/* 0xb9 */ void cp_c(void) { cp(reg.c); }
+/* 0xba */ void cp_d(void) { cp(reg.d); }                     
+/* 0xbb */ void cp_e(void) { cp(reg.e); }
+/* 0xbc */ void cp_h(void) { cp(reg.h); }
+/* 0xbd */ void cp_l(void) { cp(reg.l); }
+/* 0xbe */ void cp_hl(void) { cp(memory_read_byte(reg.hl)); }
+/* 0xbf */ void cp_a(void) { cp(reg.a); }
 /* 0xc0 */
 /* 0xc1 */
-/* 0xc2 */
+/* 0xc2 */ void jp_nz_nn(unsigned short op) { if (!FLAG_ZERO) { reg.pc = op; } }
 /* 0xc3 */ void jp_nn(unsigned short op) { reg.pc = op; }
 /* 0xc4 */
 /* 0xc5 */
@@ -277,7 +353,7 @@ unsigned char	dec(unsigned char value)
 /* 0xc7 */ void rst_00(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x00; }
 /* 0xc8 */
 /* 0xc9 */
-/* 0xca */
+/* 0xca */ void jp_z_nn(unsigned short op) { if (FLAG_ZERO) { reg.pc = op; } }
 /* 0xcb */
 /* 0xcc */
 /* 0xcd */
@@ -285,19 +361,19 @@ unsigned char	dec(unsigned char value)
 /* 0xcf */ void rst_08(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x08; }
 /* 0xd0 */
 /* 0xd1 */
-/* 0xd2 */
+/* 0xd2 */ void jp_nc_nn(unsigned short op) { if (!FLAG_CARRY) { reg.pc = op; } }
 /* 0xd3 */
 /* 0xd4 */
 /* 0xd5 */
-/* 0xd6 */
+/* 0xd6 */ void sub_a_n(unsigned char op) { reg.a = sub(reg.a, op); }
 /* 0xd7 */ void rst_10(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x10; }
 /* 0xd8 */
 /* 0xd9 */
-/* 0xda */
+/* 0xda */ void jp_c_nn(unsigned short op) { if (FLAG_CARRY) { reg.pc = op; } }
 /* 0xdb */
 /* 0xdc */
 /* 0xdd */
-/* 0xde */
+/* 0xde */ void sbc_a_n(unsigned char op) { sub_carry(op); }
 /* 0xdf */ void rst_18(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x18; }
 /* 0xe0 */ void ldh_n_a(unsigned char op) { memory_write_word(0xff00 | op, reg.a); }
 /* 0xe1 */
@@ -305,7 +381,7 @@ unsigned char	dec(unsigned char value)
 /* 0xe3 */
 /* 0xe4 */
 /* 0xe5 */
-/* 0xe6 */
+/* 0xe6 */ void and_n(unsigned char op) { and(op); }
 /* 0xe7 */ void rst_20(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x20; }
 /* 0xe8 */
 /* 0xe9 */
@@ -313,7 +389,7 @@ unsigned char	dec(unsigned char value)
 /* 0xeb */
 /* 0xec */
 /* 0xed */
-/* 0xee */
+/* 0xee */ void xor_n(unsigned char op) { xor(op); }
 /* 0xef */ void rst_28(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x28; }
 /* 0xf0 */ void ldh_a_n(unsigned char op) { reg.a = memory_read_byte(0xff00 | op); }
 /* 0xf1 */
@@ -321,7 +397,7 @@ unsigned char	dec(unsigned char value)
 /* 0xf3 */ void interrupt_disable(void) { printf("\033[31mINTERRUPT DISABLE (TODO)\033[m\n"); }
 /* 0xf4 */
 /* 0xf5 */
-/* 0xf6 */
+/* 0xf6 */ void or_n(unsigned char op) { or(op); }
 /* 0xf7 */ void rst_30(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x30; }
 /* 0xf8 */
 /* 0xf9 */
@@ -329,7 +405,7 @@ unsigned char	dec(unsigned char value)
 /* 0xfb */ void interrupt_enable(void) { printf("\033[32mINTERRUPT ENABLE (TODO)\033[m\n"); }
 /* 0xfc */
 /* 0xfd */
-/* 0xfe */ void cp_n(unsigned char op) { SET_ZERO_IF(reg.a == op); SET_CARRY_IF(reg.a <= op); SET_HALF_IF((reg.a & 0x0f) > (op & 0x0f)); SET_FLAG_NEG; }
+/* 0xfe */ void cp_n(unsigned char op) { cp(op); }
 /* 0xff */ void rst_38(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x38; }
 
 const t_opcode	opcodes[] = {
@@ -357,7 +433,7 @@ const t_opcode	opcodes[] = {
 	{ "DEC D", 0, dec_d, 4 },         // 0x15
 	{ "LD D,n", 1, ld_d_n, 8 },        // 0x16
 	{ "RL A", 0, rl_a, 4 },          // 0x17
-	{ "JR n", 0, NULL, 0 },          // 0x18
+	{ "JR n", 1, jr_n, 8 },          // 0x18
 	{ "ADD HL,DE", 0, add_hl_de, 8 },     // 0x19
 	{ "LD A,(DE)", 0, ld_a_de, 8 },     // 0x1a
 	{ "DEC DE", 0, dec_de, 8 },        // 0x1b
@@ -367,36 +443,36 @@ const t_opcode	opcodes[] = {
 	{ "RR A", 0, rr_a, 4 },          // 0x1f
 	{ "JR NZ,n", 1, jr_nz_n, 8 },       // 0x20
 	{ "LD HL,nn", 2, ld_hl_nn, 12 },      // 0x21
-	{ "LDI (HL),A", 0, NULL, 0 },    // 0x22
+	{ "LDI (HL),A", 0, ldi_hl_a, 8 },    // 0x22
 	{ "INC HL", 0, inc_hl, 8 },        // 0x23
 	{ "INC H", 0, inc_h, 4 },         // 0x24
 	{ "DEC H", 0, dec_h, 4 },         // 0x25
 	{ "LD H,n", 1, ld_h_n, 8 },        // 0x26
-	{ "DAA", 0, NULL, 0 },           // 0x27
-	{ "JR Z,n", 0, NULL, 0 },        // 0x28
+	{ "DAA", 0, daa_, 4 },           // 0x27
+	{ "JR Z,n", 1, jr_z_n, 8 },        // 0x28
 	{ "ADD HL,HL", 0, add_hl_hl, 8 },     // 0x29
-	{ "LDI A,(HL)", 0, NULL, 0 },    // 0x2a
+	{ "LDI A,(HL)", 0, ldi_a_hl, 8 },    // 0x2a
 	{ "DEC HL", 0, dec_hl, 8 },        // 0x2b
 	{ "INC L", 0, inc_l, 4 },         // 0x2c
 	{ "DEC L", 0, dec_l, 4 },         // 0x2d
 	{ "LD L,n", 1, ld_l_n, 8 },        // 0x2e
-	{ "CPL", 0, NULL, 0 },           // 0x2f
-	{ "JR NC,n", 0, NULL, 0 },       // 0x30
+	{ "CPL", 0, cpl, 4 },           // 0x2f
+	{ "JR NC,n", 1, jr_nc_n, 8 },       // 0x30
 	{ "LD SP,nn", 2, ld_sp_nn, 12 },      // 0x31
 	{ "LDD (HL),A", 0, ldd_hl_a, 8 },    // 0x32
 	{ "INC SP", 0, inc_sp, 8 },        // 0x33
-	{ "INC (HL)", 0, NULL, 0 },      // 0x34
-	{ "DEC (HL)", 0, NULL, 0 },      // 0x35
+	{ "INC (HL)", 0, inc_hlp, 12 },      // 0x34
+	{ "DEC (HL)", 0, dec_hlp, 12 },      // 0x35
 	{ "LD (HL),n", 1, ld_hl_n, 12 },     // 0x36
-	{ "SCF", 0, NULL, 0 },           // 0x37
-	{ "JR C,n", 0, NULL, 0 },        // 0x38
+	{ "SCF", 0, scf, 4 },           // 0x37
+	{ "JR C,n", 1, jr_c_n, 8 },        // 0x38
 	{ "ADD HL,SP", 0, add_hl_sp, 8 },     // 0x39
-	{ "LDD A,(HL)", 0, NULL, 0 },    // 0x3a
+	{ "LDD A,(HL)", 0, ldd_a_hl, 0 },    // 0x3a
 	{ "DEC SP", 0, dec_sp, 8 },        // 0x3b
 	{ "INC A", 0, inc_a, 4 },         // 0x3c
 	{ "DEC A", 0, dec_a, 4 },         // 0x3d
 	{ "LD A,n", 1, ld_a_n, 8 },        // 0x3e
-	{ "CCF", 0, NULL, 0 },           // 0x3f
+	{ "CCF", 0, ccf, 4 },           // 0x3f
 	{ "LD B,B", 0, ld_b_b, 4 },        // 0x40
 	{ "LD B,C", 0, ld_b_c, 4 },        // 0x41
 	{ "LD B,D", 0, ld_b_d, 4 },        // 0x42
@@ -477,57 +553,57 @@ const t_opcode	opcodes[] = {
 	{ "ADC A,L", 0, adc_a_l, 4 },       // 0x8d
 	{ "ADC A,(HL)", 0, adc_a_hl, 8 },    // 0x8e
 	{ "ADC A,A", 0, adc_a_a, 4 },       // 0x8f
-	{ "SUB A,B", 0, NULL, 0 },       // 0x90
-	{ "SUB A,C", 0, NULL, 0 },       // 0x91
-	{ "SUB A,D", 0, NULL, 0 },       // 0x92
-	{ "SUB A,E", 0, NULL, 0 },       // 0x93
-	{ "SUB A,H", 0, NULL, 0 },       // 0x94
-	{ "SUB A,L", 0, NULL, 0 },       // 0x95
-	{ "SUB A,(HL)", 0, NULL, 0 },    // 0x96
-	{ "SUB A,A", 0, NULL, 0 },       // 0x97
-	{ "SBC A,B", 0, NULL, 0 },       // 0x98
-	{ "SBC A,C", 0, NULL, 0 },       // 0x99
-	{ "SBC A,D", 0, NULL, 0 },       // 0x9a
-	{ "SBC A,E", 0, NULL, 0 },       // 0x9b
-	{ "SBC A,H", 0, NULL, 0 },       // 0x9c
-	{ "SBC A,L", 0, NULL, 0 },       // 0x9d
-	{ "SBC A,(HL)", 0, NULL, 0 },    // 0x9e
-	{ "SBC A,A", 0, NULL, 0 },       // 0x9f
-	{ "AND B", 0, NULL, 0 },         // 0xa0
-	{ "AND C", 0, NULL, 0 },         // 0xa1
-	{ "AND D", 0, NULL, 0 },         // 0xa2
-	{ "AND E", 0, NULL, 0 },         // 0xa3
-	{ "AND H", 0, NULL, 0 },         // 0xa4
-	{ "AND L", 0, NULL, 0 },         // 0xa5
-	{ "AND (HL)", 0, NULL, 0 },      // 0xa6
-	{ "AND A", 0, NULL, 0 },         // 0xa7
+	{ "SUB A,B", 0, sub_a_b, 4 },       // 0x90
+	{ "SUB A,C", 0, sub_a_c, 4 },       // 0x91
+	{ "SUB A,D", 0, sub_a_d, 4 },       // 0x92
+	{ "SUB A,E", 0, sub_a_e, 4 },       // 0x93
+	{ "SUB A,H", 0, sub_a_h, 4 },       // 0x94
+	{ "SUB A,L", 0, sub_a_l, 4 },       // 0x95
+	{ "SUB A,(HL)", 0, sub_a_hl, 8 },    // 0x96
+	{ "SUB A,A", 0, sub_a_a, 4 },       // 0x97
+	{ "SBC A,B", 0, sbc_a_b, 4 },       // 0x98
+	{ "SBC A,C", 0, sbc_a_c, 4 },       // 0x99
+	{ "SBC A,D", 0, sbc_a_d, 4 },       // 0x9a
+	{ "SBC A,E", 0, sbc_a_e, 4 },       // 0x9b
+	{ "SBC A,H", 0, sbc_a_h, 4 },       // 0x9c
+	{ "SBC A,L", 0, sbc_a_l, 4 },       // 0x9d
+	{ "SBC A,(HL)", 0, sbc_a_hl, 4 },    // 0x9e
+	{ "SBC A,A", 0, sbc_a_a, 4 },       // 0x9f
+	{ "AND B", 0, and_b, 4 },         // 0xa0
+	{ "AND C", 0, and_c, 4 },         // 0xa1
+	{ "AND D", 0, and_d, 4 },         // 0xa2
+	{ "AND E", 0, and_e, 4 },         // 0xa3
+	{ "AND H", 0, and_h, 4 },         // 0xa4
+	{ "AND L", 0, and_l, 4 },         // 0xa5
+	{ "AND (HL)", 0, and_hl, 8 },      // 0xa6
+	{ "AND A", 0, and_a, 4 },         // 0xa7
 	{ "XOR B", 0, xor_b, 4 },         // 0xa8
 	{ "XOR C", 0, xor_c, 4 },         // 0xa9
 	{ "XOR D", 0, xor_d, 4 },         // 0xaa
 	{ "XOR E", 0, xor_e, 4 },         // 0xab
 	{ "XOR H", 0, xor_h, 4 },         // 0xac
 	{ "XOR L", 0, xor_l, 4 },         // 0xad
-	{ "XOR (HL)", 0, NULL, 0 },      // 0xae
+	{ "XOR (HL)", 0, xor_hl, 8 },      // 0xae
 	{ "XOR A", 0, xor_a, 4 },         // 0xaf
-	{ "OR B", 0, NULL, 0 },          // 0xb0
-	{ "OR C", 0, NULL, 0 },          // 0xb1
-	{ "OR D", 0, NULL, 0 },          // 0xb2
-	{ "OR E", 0, NULL, 0 },          // 0xb3
-	{ "OR H", 0, NULL, 0 },          // 0xb4
-	{ "OR L", 0, NULL, 0 },          // 0xb5
-	{ "OR (HL)", 0, NULL, 0 },       // 0xb6
-	{ "OR A", 0, NULL, 0 },          // 0xb7
-	{ "CP B", 0, NULL, 0 },          // 0xb8
-	{ "CP C", 0, NULL, 0 },          // 0xb9
-	{ "CP D", 0, NULL, 0 },          // 0xba
-	{ "CP E", 0, NULL, 0 },          // 0xbb
-	{ "CP H", 0, NULL, 0 },          // 0xbc
-	{ "CP L", 0, NULL, 0 },          // 0xbd
-	{ "CP (HL)", 0, NULL, 0 },       // 0xbe
-	{ "CP A", 0, NULL, 0 },          // 0xbf
+	{ "OR B", 0, or_b, 4 },          // 0xb0
+	{ "OR C", 0, or_c, 4 },          // 0xb1
+	{ "OR D", 0, or_d, 4 },          // 0xb2
+	{ "OR E", 0, or_e, 4 },          // 0xb3
+	{ "OR H", 0, or_h, 4 },          // 0xb4
+	{ "OR L", 0, or_l, 4 },          // 0xb5
+	{ "OR (HL)", 0, or_hl, 8 },       // 0xb6
+	{ "OR A", 0, or_a, 4 },          // 0xb7
+	{ "CP B", 0, cp_b, 4 },          // 0xb8
+	{ "CP C", 0, cp_c, 4 },          // 0xb9
+	{ "CP D", 0, cp_d, 4 },          // 0xba
+	{ "CP E", 0, cp_e, 4 },          // 0xbb
+	{ "CP H", 0, cp_h, 4 },          // 0xbc
+	{ "CP L", 0, cp_l, 4 },          // 0xbd
+	{ "CP (HL)", 0, cp_hl, 8 },       // 0xbe
+	{ "CP A", 0, cp_a, 4 },          // 0xbf
 	{ "RET NZ", 0, NULL, 0 },        // 0xc0
 	{ "POP BC", 0, NULL, 0 },        // 0xc1
-	{ "JP NZ,nn", 0, NULL, 0 },      // 0xc2
+	{ "JP NZ,nn", 2, jp_nz_nn, 12 },      // 0xc2
 	{ "JP nn", 2, jp_nn, 16 },         // 0xc3
 	{ "CALL NZ,nn", 0, NULL, 0 },    // 0xc4
 	{ "PUSH BC", 0, NULL, 0 },       // 0xc5
@@ -535,7 +611,7 @@ const t_opcode	opcodes[] = {
 	{ "RST 0", 0, rst_00, 32 },         // 0xc7
 	{ "RET Z", 0, NULL, 0 },         // 0xc8
 	{ "RET", 0, NULL, 0 },           // 0xc9
-	{ "JP Z,nn", 0, NULL, 0 },       // 0xca
+	{ "JP Z,nn", 2, jp_z_nn, 12 },       // 0xca
 	{ "Ext ops", 0, NULL, 0 },       // 0xcb
 	{ "CALL Z,nn", 0, NULL, 0 },     // 0xcc
 	{ "CALL nn", 0, NULL, 0 },       // 0xcd
@@ -543,19 +619,19 @@ const t_opcode	opcodes[] = {
 	{ "RST 8", 0, rst_08, 32 },         // 0xcf
 	{ "RET NC", 0, NULL, 0 },        // 0xd0
 	{ "POP DE", 0, NULL, 0 },        // 0xd1
-	{ "JP NC,nn", 0, NULL, 0 },      // 0xd2
+	{ "JP NC,nn", 2, jp_nc_nn, 12 },      // 0xd2
 	{ "XX", 0, NULL, 0 },            // 0xd3
 	{ "CALL NC,nn", 0, NULL, 0 },    // 0xd4
 	{ "PUSH DE", 0, NULL, 0 },       // 0xd5
-	{ "SUB A,n", 0, NULL, 0 },       // 0xd6
+	{ "SUB A,n", 1, sub_a_n, 8 },       // 0xd6
 	{ "RST 10", 0, rst_10, 32 },        // 0xd7
 	{ "RET C", 0, NULL, 0 },         // 0xd8
 	{ "RETI", 0, NULL, 0 },          // 0xd9
-	{ "JP C,nn", 0, NULL, 0 },       // 0xda
+	{ "JP C,nn", 2, jp_c_nn, 12 },       // 0xda
 	{ "XX", 0, NULL, 0 },            // 0xdb
 	{ "CALL C,nn", 0, NULL, 0 },     // 0xdc
 	{ "XX", 0, NULL, 0 },            // 0xdd
-	{ "SBC A,n", 0, NULL, 0 },       // 0xde
+	{ "SBC A,n", 1, sbc_a_n, 8 },       // 0xde
 	{ "RST 18", 0, rst_18, 32 },        // 0xdf
 	{ "LDH (n),A", 1, ldh_n_a, 12 },     // 0xe0
 	{ "POP HL", 0, NULL, 0 },        // 0xe1
@@ -563,7 +639,7 @@ const t_opcode	opcodes[] = {
 	{ "XX", 0, NULL, 0 },            // 0xe3
 	{ "XX", 0, NULL, 0 },            // 0xe4
 	{ "PUSH HL", 0, NULL, 0 },       // 0xe5
-	{ "AND n", 0, NULL, 0 },         // 0xe6
+	{ "AND n", 1, and_n, 8 },         // 0xe6
 	{ "RST 20", 0, rst_20, 32 },        // 0xe7
 	{ "ADD SP,d", 0, NULL, 0 },      // 0xe8
 	{ "JP (HL)", 0, NULL, 0 },       // 0xe9
@@ -571,7 +647,7 @@ const t_opcode	opcodes[] = {
 	{ "XX", 0, NULL, 0 },            // 0xeb
 	{ "XX", 0, NULL, 0 },            // 0xec
 	{ "XX", 0, NULL, 0 },            // 0xed
-	{ "XOR n", 0, NULL, 0 },         // 0xee
+	{ "XOR n", 1, xor_n, 8 },         // 0xee
 	{ "RST 28", 0, rst_28, 32 },        // 0xef
 	{ "LDH A,(n)", 1, ldh_a_n, 12 },     // 0xf0
 	{ "POP AF", 0, NULL, 0 },        // 0xf1
@@ -579,7 +655,7 @@ const t_opcode	opcodes[] = {
 	{ "DI", 0, interrupt_disable, 4 },            // 0xf3
 	{ "XX", 0, NULL, 0 },            // 0xf4
 	{ "PUSH AF", 0, NULL, 0 },       // 0xf5
-	{ "OR n", 0, NULL, 0 },          // 0xf6
+	{ "OR n", 1, or_n, 8 },          // 0xf6
 	{ "RST 30", 0, rst_30, 32 },        // 0xf7
 	{ "LDHL SP,d", 0, NULL, 0 },     // 0xf8
 	{ "LD SP,HL", 0, NULL, 0 },      // 0xf9

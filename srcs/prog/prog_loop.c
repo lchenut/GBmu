@@ -41,7 +41,9 @@ static void		update_timer(void)
 	}
 }
 
-void			memory_push_byte_on_stack(unsigned short op)
+//unsigned char	memory_push_ // TODO
+
+void			memory_push_byte_on_stack(unsigned char op)
 {
 	mem.memory[reg.sp] = op;
 	reg.sp -= 1;
