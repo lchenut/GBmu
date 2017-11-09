@@ -221,36 +221,6 @@ static void		loop_debugger_next_opcode(t_debugger *this)
 	(void)this;
 }
 
-unsigned char	memory_pop_byte_from_stack(void)
-{
-	unsigned char	ret;
-
-	ret = mem.memory[reg.sp];
-	reg.sp += 1;
-	return (ret);
-}
-
-unsigned short	memory_pop_word_from_stack(void)
-{
-	unsigned short	ret;
-
-	ret = *((unsigned short *)(mem.memory + reg.sp));
-	reg.sp += 2;
-	return (ret);
-}
-
-void			memory_push_byte_on_stack(unsigned char op)
-{
-	mem.memory[reg.sp] = op;
-	reg.sp -= 1;
-}
-
-void			memory_push_word_on_stack(unsigned short op)
-{
-	*((unsigned short *)(mem.memory + reg.sp)) = op;
-	reg.sp -= 2;
-}
-
 static void		loop_debugger_keyboard_type(t_prog *this, t_debugger *debugger, SDL_Event *event)
 {
 	if (event->key.keysym.scancode == SDL_SCANCODE_SPACE) {
@@ -263,6 +233,10 @@ static void		loop_debugger_keyboard_type(t_prog *this, t_debugger *debugger, SDL
 			loop_debugger_next_opcode(debugger);
 			debugger_dump(debugger);
 		}
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_END) {
+		debugger_scroll_end(debugger);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_HOME) {
+		debugger_scroll_home(debugger);
 	}
 	(void)this;
 }
