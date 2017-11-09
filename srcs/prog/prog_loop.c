@@ -8,7 +8,7 @@ static void		update_divider_timer(void)
 	inner_divider_timer += last_clock;
 	if (inner_divider_timer >= 256) {
 		mem.memory[0xff04] += 1;
-		inner_divider_timer -= 256;
+		inner_divider_timer = 0;
 	}
 }
 
@@ -89,13 +89,13 @@ static void		set_lcd_status(size_t scanline_counter)
 	}
 	if (should_interrupt && mode != (mem.memory[0xff41] & 0x3)) {
 		// new mode <=> interrupt
-		mem.memory[0xff0f] = (1 << 1); // LCD Interrupt
+		mem.memory[0xff0f] |= (1 << 1); // LCD Interrupt
 	}
 	if (mem.memory[0xff44] == mem.memory[0xff45]) {
 		// check coincidence flag
 		mem.memory[0xff41] |= (1 << 2);
 		if ((mem.memory[0xff41] >> 6) & 1) {
-			mem.memory[0xff0f] = (1 << 1); // LCD Interrupt
+			mem.memory[0xff0f] |= (1 << 1); // LCD Interrupt
 		}
 	} else {
 		mem.memory[0xff41] &= ~(1 << 2);
@@ -157,10 +157,10 @@ static void		render_tiles(void)
 		int r, g, b;
 		switch ((palette >> (color_num * 2)) & 0x3)
 		{
-			case 0: r = 0xff; g = 0xff; b = 0xff; dprintf(2, "Que Du Blanc\n"); break ;
-			case 1: r = 0xcc; g = 0xcc; b = 0xcc; dprintf(2, "Que Du Gris Clair\n"); break ;
-			case 2: r = 0x77; g = 0x77; b = 0x77; dprintf(2, "Que Du Gris Fonce\n"); break ;
-			case 3: r = 0x00; g = 0x00; b = 0x00; dprintf(2, "Que Du Noir\n"); break ;
+			case 0: r = 0xff; g = 0xff; b = 0xff; /* dprintf(2, "Que Du Blanc\n"); */ break ;
+			case 1: r = 0xcc; g = 0xcc; b = 0xcc; dprintf(2, "Que Du Gris Clair\n"); exit(0); break ;
+			case 2: r = 0x77; g = 0x77; b = 0x77; dprintf(2, "Que Du Gris Fonce\n"); exit(0); break ;
+			case 3: r = 0x00; g = 0x00; b = 0x00; dprintf(2, "Que Du Noir\n"); exit(0); break ;
 		}
 		SDL_SetRenderDrawColor(debugger->renderer, r, g, b, 0);
 		SDL_RenderDrawPoint(debugger->renderer, 400 + pixel, 400 + mem.memory[0xff44]);
@@ -174,12 +174,12 @@ static void		render_tiles(void)
 
 static void		draw_scanline(void)
 {
-   if (mem.memory[0xff40] & (1 << 0)) {
-	   render_tiles();
-   }
-   if (mem.memory[0xff40] & (1 << 1)) {
-//	   render_sprites();
-   }
+	if (mem.memory[0xff40] & (1 << 0)) {
+		render_tiles();
+	}
+	if (mem.memory[0xff40] & (1 << 1)) {
+//		render_sprites();
+	}
 } 
 
 static void		update_graphics(void)
@@ -197,16 +197,21 @@ static void		update_graphics(void)
 	scanline_counter += last_clock;
 	if (scanline_counter > 456) {
 		mem.memory[0xff44] += 1;
-		printf("\033[32m%hhu\033[m\n", mem.memory[0xff44]);
-		scanline_counter -= 456;
+		//printf("\033[32m%hhu\033[m\n", mem.memory[0xff44]);
+		scanline_counter = 0;
 		if (mem.memory[0xff44] == 144) {
-			mem.memory[0xff0f] = (1 << 0); // VBlank Interrupt
+			mem.memory[0xff0f] |= (1 << 0); // VBlank Interrupt
 		} else if (mem.memory[0xff44] > 153) {
 			mem.memory[0xff44] = 0;
 		} else {
 			draw_scanline();
 		}
 	}
+}
+
+static bool		find_fn(void *data, void *ctx)
+{
+	return (data == ctx);
 }
 
 static void		loop_debugger_next_opcode(t_debugger *this)
@@ -245,6 +250,8 @@ static void		loop_debugger_mouse_type(t_prog *this, t_debugger *debugger, SDL_Ev
 {
 	if (scroll_click(debugger->scroll_xxd, event->button.x, event->button.y)) {
 		debugger_dump(debugger);
+	} else if (debugger->step_by_step && debugger_add_breakpoint(debugger, event->button.x, event->button.y)) {
+		debugger_dump(debugger);
 	}
 	(void)this;
 }
@@ -274,7 +281,10 @@ static void		loop_debugger(t_prog *this)
 			loop_debugger_mouse_type(this, debugger, &event);
 		} else if (!debugger->step_by_step) {
 			loop_debugger_next_opcode(debugger);
-			if (loop % 100 == 0) {
+			if (vector_exists(debugger->breakpoints, find_fn, (void *)((size_t)reg.pc))) {
+				debugger->step_by_step = true;
+				debugger_dump(debugger);
+			} else if (loop % 10000 == 0) {
 				debugger_dump(debugger);
 				loop = 0;
 			}

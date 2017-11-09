@@ -16,6 +16,7 @@ typedef struct		s_debugger
 	TTF_Font		*font;
 	bool			step_by_step;
 	t_scroll		*scroll_xxd;
+	t_vector		*breakpoints;
 }					t_debugger;
 
 t_debugger			*debugger_new(void);
@@ -25,5 +26,7 @@ void				debugger_dump(t_debugger *this);
 
 void				debugger_scroll_home(t_debugger *this);
 void				debugger_scroll_end(t_debugger *this);
+
+bool				debugger_add_breakpoint(t_debugger *this, size_t x, size_t y);
 
 #endif // DEBUGGER_H

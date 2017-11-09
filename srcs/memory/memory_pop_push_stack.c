@@ -21,12 +21,12 @@ unsigned short	memory_pop_word_from_stack(void)
 
 void			memory_push_byte_on_stack(unsigned char op)
 {
-	mem.memory[reg.sp] = op;
 	reg.sp -= 1;
+	mem.memory[reg.sp] = op;
 }
 
 void			memory_push_word_on_stack(unsigned short op)
 {
-	*((unsigned short *)(mem.memory + reg.sp)) = op;
 	reg.sp -= 2;
+	*((unsigned short *)(mem.memory + reg.sp)) = op;
 }

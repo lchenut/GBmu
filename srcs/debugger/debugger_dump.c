@@ -1,4 +1,5 @@
 #include "debugger.h"
+#include "opcodes.h"
 
 static void	draw_line(t_debugger *this, int index, int *w, int *h)
 {
@@ -83,6 +84,55 @@ void		dump_registers(t_debugger *this)
 	dump_flag(this, 'c', FLAG_CARRY, 3);
 }
 
+static bool		find_fn(void *data, void *ctx)
+{
+	return (data == ctx);
+}
+
+static void	dump_command(t_debugger *this, const t_opcode *op, unsigned short index, int command_num)
+{
+	SDL_Surface *surf;
+	SDL_Texture *text;
+	char		*line;
+	SDL_Color	wh = { 0, 0, 0, 255 };
+	SDL_Color	re = { 255, 0, 0, 255 };
+	int			tw = 0;
+	int			th = 0;
+
+	if (op->argument == 0) {
+		asprintf(&line, "%04hx:  %s", index, op->name);
+	} else if (op->argument == 1) {
+		asprintf(&line, "%04hx:  %s  {0x%02hhx}", index, op->name, memory_read_byte(index + 1));
+	} else {
+		asprintf(&line, "%04hx:  %s  {0x%04hx}", index, op->name, memory_read_word(index + 1));
+	}
+	if (vector_exists(this->breakpoints, find_fn, (void *)((size_t)index))) {
+		surf = TTF_RenderText_Solid(this->font, line, re);
+	} else {
+		surf = TTF_RenderText_Solid(this->font, line, wh);
+	}
+	text = SDL_CreateTextureFromSurface(this->renderer, surf);
+	SDL_QueryTexture(text, NULL, NULL, &tw, &th);
+	SDL_Rect dstrect = { 400, 100 + 10 * command_num, tw, th };
+	SDL_RenderCopy(this->renderer, text, NULL, &dstrect);
+	SDL_DestroyTexture(text);
+	SDL_FreeSurface(surf);
+	free(line);
+}
+
+void		dump_commands(t_debugger *this)
+{
+	unsigned short	index;
+	const t_opcode	*op;
+
+	index = reg.pc;
+	for (int i = 0; i < 10; i += 1) {
+		op = get_opcode(index);
+		dump_command(this, op, index, i);
+		index += 1 + op->argument;
+	}
+}
+
 void		debugger_dump(t_debugger *this)
 {
 	size_t	i;
@@ -97,12 +147,39 @@ void		debugger_dump(t_debugger *this)
 	SDL_SetRenderDrawColor(this->renderer, 255, 255, 255, 255);
 	visual_fill_rectangle(this->renderer, 8, 8, 330, 1137);
 	visual_fill_rectangle(this->renderer, 398, 8, 109, 67);
+	visual_fill_rectangle(this->renderer, 398, 98, 200, 117);
 	//SDL_RenderClear(this->renderer);
 	for (; i <= e; i += 16) {
 		draw_line(this, i, &w, &h);
 	}
 	scroll_draw(this->scroll_xxd, this->renderer);
 	dump_registers(this);
-//	dump_command(this);
+	dump_commands(this);
 	SDL_RenderPresent(this->renderer);
+}
+
+void			bp_add_if_exists_remove_else(t_debugger *this, unsigned short bp)
+{
+	if (vector_exists(this->breakpoints, find_fn, (void *)((size_t)bp))) {
+		vector_find_pop(this->breakpoints, find_fn, (void *)((size_t)bp));
+	} else {
+		vector_push_back(this->breakpoints, (void *)((size_t)bp));
+	}
+}
+
+bool			debugger_add_breakpoint(t_debugger *this, size_t x, size_t y)
+{
+	unsigned short	index;
+	const t_opcode	*op;
+
+	if (x > 400 && x < 600 && y > 100 && y < 205) {
+		index = reg.pc;
+		for (y = (y - 100) / 10; y > 0; y -= 1) {
+			op = get_opcode(index);
+			index += 1 + op->argument;
+		}
+		bp_add_if_exists_remove_else(this, index);
+		return (true);
+	}
+	return (false);
 }
