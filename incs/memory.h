@@ -3,6 +3,25 @@
 
 # include "basics.h"
 
+# define Div_Register		(mem.memory[0xff04])
+# define Timer_Counter		(mem.memory[0xff05])
+# define Timer_Modulo		(mem.memory[0xff06])
+# define Timer_Control		(mem.memory[0xff07])
+# define Interrupt_Flag		(mem.memory[0xff0f])
+# define LCD_Control		(mem.memory[0xff40])
+# define LCD_Status			(mem.memory[0xff41])
+# define Scroll_Y			(mem.memory[0xff42])
+# define Scroll_X			(mem.memory[0xff43])
+# define LCD_Y_Coord		(mem.memory[0xff44])
+# define LCD_Y_Compare		(mem.memory[0xff45])
+# define DMA_Address		(mem.memory[0xff46])
+# define BG_Palette			(mem.memory[0xff47])
+# define Obj1_Palette		(mem.memory[0xff48])
+# define Obj2_Palette		(mem.memory[0xff49])
+# define Window_Y_Pos		(mem.memory[0xff4a])
+# define Window_X_Pos		(mem.memory[0xff4b])
+# define Interrupt_Enable	(mem.memory[0xffff])
+
 typedef union			u_memory {
 	struct {
 		unsigned char		cart[0x8000]; // 0x0000 - 0x7FFF: ROM

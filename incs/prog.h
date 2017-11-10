@@ -7,6 +7,8 @@
 # include "debugger.h"
 # include "opcodes.h"
 
+extern unsigned char	game[160][144][3];
+
 typedef struct		s_prog
 {
 	int				fd;

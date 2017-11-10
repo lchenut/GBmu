@@ -18,6 +18,8 @@ t_debugger		*debugger_new(void)
 	this->font = TTF_OpenFont("/Library/Fonts/Courier New.ttf", 12);
 	this->scroll_xxd = scroll_new(4096, 80, 350, 10, 20, 1133);
 	this->breakpoints = vector_new();
-	vector_push_back(this->breakpoints, (void *)0x33);
+//	vector_push_back(this->breakpoints, (void *)0x40);
+//	vector_push_back(this->breakpoints, (void *)0x29fa);
+//	vector_push_back(this->breakpoints, (void *)0xffb6);
 	return (this);
 }

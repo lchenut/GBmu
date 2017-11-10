@@ -1,3 +1,4 @@
+#include "prog.h"
 #include "debugger.h"
 #include "opcodes.h"
 
@@ -133,6 +134,16 @@ void		dump_commands(t_debugger *this)
 	}
 }
 
+void		debugger_print_game(t_debugger *this)
+{
+	for (unsigned char i = 0; i < 160; i += 1) {
+		for (unsigned char j = 0; j < 144; j += 1) {
+			SDL_SetRenderDrawColor(this->renderer, game[i][j][0], game[i][j][1], game[i][j][2], 0);
+			SDL_RenderDrawPoint(this->renderer, 500 + i, 700 + j);
+		}
+	}
+}
+
 void		debugger_dump(t_debugger *this)
 {
 	size_t	i;
@@ -144,6 +155,9 @@ void		debugger_dump(t_debugger *this)
 	e = i + 0x500;
 	w = 0;
 	h = 0;
+	SDL_SetRenderDrawColor(this->renderer, 127, 127, 127, 255);
+	SDL_RenderClear(this->renderer);
+	//SDL_RenderPresent(this->renderer);
 	SDL_SetRenderDrawColor(this->renderer, 255, 255, 255, 255);
 	visual_fill_rectangle(this->renderer, 8, 8, 330, 1137);
 	visual_fill_rectangle(this->renderer, 398, 8, 109, 67);
@@ -155,7 +169,11 @@ void		debugger_dump(t_debugger *this)
 	scroll_draw(this->scroll_xxd, this->renderer);
 	dump_registers(this);
 	dump_commands(this);
+	debugger_print_game(this);
 	SDL_RenderPresent(this->renderer);
+//	for (unsigned char i = 0; i < 144; i += 1) {
+//		printf("game[0][%hhu] = { %hhu %hhu %hhu }\n", i, game[0][i][0], game[0][i][1], game[0][i][2]);
+//	}
 }
 
 void			bp_add_if_exists_remove_else(t_debugger *this, unsigned short bp)
