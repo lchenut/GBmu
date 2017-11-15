@@ -2,8 +2,8 @@
 # define DEBUGGER_H
 
 # include "basics.h"
-# include "SDL.h"
-# include "SDL_ttf.h"
+// # include "SDL.h"
+// # include "SDL_ttf.h"
 # include "registers.h"
 # include "memory.h"
 # include "scroll.h"
@@ -17,9 +17,9 @@ typedef struct		s_command
 
 typedef struct		s_debugger
 {
-	SDL_Window		*window;
-	SDL_Renderer	*renderer;
-	TTF_Font		*font;
+// 	SDL_Window		*window;
+// 	SDL_Renderer	*renderer;
+//	TTF_Font		*font;
 	bool			step_by_step;
 	t_scroll		*scroll_xxd;
 	t_vector		*commands;

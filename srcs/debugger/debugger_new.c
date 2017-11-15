@@ -6,12 +6,12 @@ t_debugger		*debugger_new(void)
 
 	this = malloc(sizeof(t_debugger));
 	//this->window = SDL_CreateWindow("Debug", 0, 0, 2560, 1315, SDL_WINDOW_SHOWN);
-	this->window = SDL_CreateWindow("Debug", 0, 0, 250, 250, SDL_WINDOW_SHOWN);
-	if (this->window == NULL) {
-		dprintf(2 ,"Fail to init window (%s)\n", SDL_GetError());
-		exit(1);
-	}
-	this->renderer = SDL_CreateRenderer(this->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	//this->window = SDL_CreateWindow("Debug", 0, 0, 250, 250, SDL_WINDOW_SHOWN);
+	//if (this->window == NULL) {
+	//	//dprintf(2 ,"Fail to init window (%s)\n", SDL_GetError());
+	//	exit(1);
+	//}
+	//this->renderer = SDL_CreateRenderer(this->window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 //	if (TTF_Init() == -1) {
 //		dprintf(2 ,"Fail to init TTF (%s)\n", SDL_GetError());
 //		exit(1);

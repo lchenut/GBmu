@@ -227,6 +227,7 @@ static void		draw_scanline(void)
 
 static void		update_graphics(t_debugger *this)
 {
+	(void)(this);
 	static size_t	scanline_counter = 0;
 
 	if (((LCD_Control >> 7) & 1) == 0) {
@@ -241,7 +242,7 @@ static void		update_graphics(t_debugger *this)
 	if (scanline_counter > 456) {
 		if (LCD_Y_Coord == 144) {
 			Interrupt_Flag |= (1 << 0); // VBlank Interrupt
-			debugger_dump(this);
+			//debugger_dump(this);
 		} else if (LCD_Y_Coord > 153) {
 			LCD_Y_Coord = 0;
 		}
@@ -260,98 +261,103 @@ static bool		find_fn(void *data, void *ctx)
 
 static void		loop_debugger_next_opcode(t_debugger *this)
 {
+	static int	count = 0;
 	next_opcode();
 	update_timer();
 	update_graphics(this);
 	update_interrupt();
 	if (total_clock >= 69905) {
+		if (count++ > 100) {
+			exit(0);
+		}
 		//debugger_print_game(this);
-		debugger_dump(this);
+		//debugger_dump(this);
 		total_clock -= 69905;
 	}
 	(void)this;
 }
 
-static void		loop_debugger_keyboard_type(t_prog *this, t_debugger *debugger, SDL_Event *event)
-{
-	if (event->key.keysym.scancode == SDL_SCANCODE_SPACE) {
-		debugger->step_by_step = !debugger->step_by_step;
-		if (debugger->step_by_step == true) {
-			debugger_dump(debugger);
-		}
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_RETURN) {
-		if (debugger->step_by_step == true) {
-			loop_debugger_next_opcode(debugger);
-			debugger_dump(debugger);
-		}
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_END) {
-		debugger_scroll_end(debugger);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_HOME) {
-		debugger_scroll_home(debugger);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_Q) {
-		joypad &= ~(1 << 7);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_W) {
-		joypad &= ~(1 << 6);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_B) {
-		joypad &= ~(1 << 5);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_A) {
-		joypad &= ~(1 << 4);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_DOWN) {
-		joypad &= ~(1 << 3);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_UP) {
-		joypad &= ~(1 << 2);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_LEFT) {
-		joypad &= ~(1 << 1);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_RIGHT) {
-		joypad &= ~(1 << 0);
-	}
-	if (!debugger->step_by_step) {
-		loop_debugger_next_opcode(debugger);
-		//if (vector_exists(debugger->breakpoints, find_fn, (void *)((size_t)reg.pc))) {
-		//	debugger->step_by_step = true;
-		//	debugger_dump(debugger);
-		//}
-	}
-	(void)this;
-}
-
-static void		loop_debugger_keyboard_up_type(t_prog *this, t_debugger *debugger, SDL_Event *event)
-{
-	if (event->key.keysym.scancode == SDL_SCANCODE_Q) {
-		joypad |= (1 << 7);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_W) {
-		joypad |= (1 << 6);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_B) {
-		joypad |= (1 << 5);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_A) {
-		joypad |= (1 << 4);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_DOWN) {
-		joypad |= (1 << 3);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_UP) {
-		joypad |= (1 << 2);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_LEFT) {
-		joypad |= (1 << 1);
-	} else if (event->key.keysym.scancode == SDL_SCANCODE_RIGHT) {
-		joypad |= (1 << 0);
-	}
-	(void)this;
-	(void)debugger;
-}
-
-static void		loop_debugger_mouse_type(t_prog *this, t_debugger *debugger, SDL_Event *event)
-{
-	if (scroll_click(debugger->scroll_xxd, event->button.x, event->button.y)) {
-		debugger_dump(debugger);
-	} else if (debugger->step_by_step && debugger_add_breakpoint(debugger, event->button.x, event->button.y)) {
-		debugger_dump(debugger);
-	}
-	(void)this;
-}
+//static void		loop_debugger_keyboard_type(t_prog *this, t_debugger *debugger, SDL_Event *event)
+//{
+//	if (event->key.keysym.scancode == SDL_SCANCODE_SPACE) {
+//		debugger->step_by_step = !debugger->step_by_step;
+//		if (debugger->step_by_step == true) {
+//			debugger_dump(debugger);
+//		}
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_RETURN) {
+//		if (debugger->step_by_step == true) {
+//			loop_debugger_next_opcode(debugger);
+//			debugger_dump(debugger);
+//		}
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_END) {
+//		debugger_scroll_end(debugger);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_HOME) {
+//		debugger_scroll_home(debugger);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_Q) {
+//		joypad &= ~(1 << 7);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_W) {
+//		joypad &= ~(1 << 6);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_B) {
+//		joypad &= ~(1 << 5);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_A) {
+//		joypad &= ~(1 << 4);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_DOWN) {
+//		joypad &= ~(1 << 3);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_UP) {
+//		joypad &= ~(1 << 2);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_LEFT) {
+//		joypad &= ~(1 << 1);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_RIGHT) {
+//		joypad &= ~(1 << 0);
+//	}
+//	if (!debugger->step_by_step) {
+//		loop_debugger_next_opcode(debugger);
+//		//if (vector_exists(debugger->breakpoints, find_fn, (void *)((size_t)reg.pc))) {
+//		//	debugger->step_by_step = true;
+//		//	debugger_dump(debugger);
+//		//}
+//	}
+//	(void)this;
+//}
+//
+//static void		loop_debugger_keyboard_up_type(t_prog *this, t_debugger *debugger, SDL_Event *event)
+//{
+//	if (event->key.keysym.scancode == SDL_SCANCODE_Q) {
+//		joypad |= (1 << 7);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_W) {
+//		joypad |= (1 << 6);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_B) {
+//		joypad |= (1 << 5);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_A) {
+//		joypad |= (1 << 4);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_DOWN) {
+//		joypad |= (1 << 3);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_UP) {
+//		joypad |= (1 << 2);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_LEFT) {
+//		joypad |= (1 << 1);
+//	} else if (event->key.keysym.scancode == SDL_SCANCODE_RIGHT) {
+//		joypad |= (1 << 0);
+//	}
+//	(void)this;
+//	(void)debugger;
+//}
+//
+//static void		loop_debugger_mouse_type(t_prog *this, t_debugger *debugger, SDL_Event *event)
+//{
+//	if (scroll_click(debugger->scroll_xxd, event->button.x, event->button.y)) {
+//		debugger_dump(debugger);
+//	} else if (debugger->step_by_step && debugger_add_breakpoint(debugger, event->button.x, event->button.y)) {
+//		debugger_dump(debugger);
+//	}
+//	(void)this;
+//}
 
 static void		loop_debugger(t_prog *this)
 {
 	(void)find_fn;
-	SDL_Event	event;
+	(void)this;
+//	SDL_Event	event;
 //	t_debugger	*debugger;
 //	(void)loop_debugger_keyboard_type;
 //	(void)loop_debugger_mouse_type;
@@ -360,29 +366,29 @@ static void		loop_debugger(t_prog *this)
 //	(void)find_fn;
 
 	debugger = debugger_new();
-	debugger_dump(debugger);
+	//debugger_dump(debugger);
 	//debugger->step_by_step = true;
 	debugger->step_by_step = false;
 //	SDL_WaitEvent(&event);
 	while (1) {
-		while (SDL_PollEvent(&event)) {
-			if (event.type == SDL_QUIT) {
-				return ;
-			} else if (event.type == SDL_KEYDOWN) {
-				loop_debugger_keyboard_type(this, debugger, &event);
-			} else if (event.type == SDL_KEYUP) {
-				loop_debugger_keyboard_up_type(this, debugger, &event);
-			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
-				loop_debugger_mouse_type(this, debugger, &event);
-			}
-		}
-		if (!debugger->step_by_step) {
+//		while (SDL_PollEvent(&event)) {
+//			if (event.type == SDL_QUIT) {
+//				return ;
+//			} else if (event.type == SDL_KEYDOWN) {
+//				loop_debugger_keyboard_type(this, debugger, &event);
+//			} else if (event.type == SDL_KEYUP) {
+//				loop_debugger_keyboard_up_type(this, debugger, &event);
+//			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
+//				loop_debugger_mouse_type(this, debugger, &event);
+//			}
+//		}
+//		if (!debugger->step_by_step) {
 			loop_debugger_next_opcode(debugger);
 			//if (vector_exists(debugger->breakpoints, find_fn, (void *)((size_t)reg.pc))) {
 			//	debugger->step_by_step = true;
 			//	debugger_dump(debugger);
 			//}
-		}
+//		}
 	}
 }
 

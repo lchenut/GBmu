@@ -28,21 +28,21 @@ static void		fill_rom_vector(t_prog *this)
 	memmove(mem.cart + 0x4000, vector_get(rom, 1), 0x4000);
 }
 
-static void		video_init(t_prog *this)
-{
-	if (this->error != NULL) {
-		return ;
-	}
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE)) {
-		asprintf(&this->error, "Fail to init SDL (%s)", SDL_GetError());
-		return ;
-	}
-	if (TTF_Init() == -1) {
-		asprintf(&this->error, "Fail to init TTF (%s)", TTF_GetError());
-		return ;
-	}
-	signal(SIGINT, SIG_DFL);
-}
+//static void		video_init(t_prog *this)
+//{
+//	if (this->error != NULL) {
+//		return ;
+//	}
+//	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_NOPARACHUTE)) {
+//		asprintf(&this->error, "Fail to init SDL (%s)", SDL_GetError());
+//		return ;
+//	}
+//	if (TTF_Init() == -1) {
+//		asprintf(&this->error, "Fail to init TTF (%s)", TTF_GetError());
+//		return ;
+//	}
+//	signal(SIGINT, SIG_DFL);
+//}
 
 t_prog			*prog_new(int ac, char **av)
 {
@@ -65,6 +65,6 @@ t_prog			*prog_new(int ac, char **av)
 	memory_reset();
 	rom = vector_new();
 	fill_rom_vector(this);
-	video_init(this);
+	//video_init(this);
 	return (this);
 }

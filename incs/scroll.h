@@ -22,7 +22,7 @@ typedef struct		s_scroll
 t_scroll			*scroll_new(size_t total, size_t size, size_t posx, size_t posy, size_t width, size_t height);
 void				scroll_del(t_scroll *this);
 
-void				scroll_draw(t_scroll *this, SDL_Renderer *renderer);
-bool				scroll_click(t_scroll *this, size_t x, size_t y);
+// void				scroll_draw(t_scroll *this, SDL_Renderer *renderer);
+// bool				scroll_click(t_scroll *this, size_t x, size_t y);
 
 #endif // SCROLL_H

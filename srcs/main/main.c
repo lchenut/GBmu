@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <strings.h>
-#include "SDL.h"
-#include "SDL_ttf.h"
-#include "SDL_surface.h"
+//#include "SDL.h"
+//#include "SDL_ttf.h"
+//#include "SDL_surface.h"
 #include "memory.h"
 #include "registers.h"
 #include "opcodes.h"
@@ -11,9 +11,9 @@
 t_registers	reg;
 t_memory	mem;
 t_vector	*rom;
-SDL_Window	*win;
-SDL_Renderer	*renderer;
-TTF_Font	*font;
+//SDL_Window	*win;
+//SDL_Renderer	*renderer;
+//TTF_Font	*font;
 
 int			main(int ac, char **av)
 {
