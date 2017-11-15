@@ -515,7 +515,7 @@ unsigned char	set(unsigned char b, unsigned char op)
 /* 0xfe */ void set_7_hl(void) { memory_write_byte(reg.hl, set(7, memory_read_byte(reg.hl))); }
 /* 0xff */ void set_7_a(void) { reg.a = set(7, reg.a); }
 
-const t_opcode	cb_opcode[] = {
+const t_opcode	cb_opcodes[] = {
 	{ "RLC B", 0, rlc_b, 8 },         // 0x00
 	{ "RLC C", 0, rlc_c, 8 },         // 0x01
 	{ "RLC D", 0, rlc_d, 8 },         // 0x02
@@ -966,38 +966,38 @@ const t_opcode	cb_opcode[] = {
 /* 0xbd */ void cp_l(void) { cp(reg.l); }
 /* 0xbe */ void cp_hl(void) { cp(memory_read_byte(reg.hl)); }
 /* 0xbf */ void cp_a(void) { cp(reg.a); }
-/* 0xc0 */ void ret_nz(void) { if (!FLAG_ZERO) { reg.pc = memory_pop_word_from_stack(); } }
+/* 0xc0 */ void ret_nz(void) { if (!FLAG_ZERO) { reg.pc = memory_pop_word_from_stack(); total_clock += 12; last_clock += 12; } }
 /* 0xc1 */ void pop_bc(void) { reg.bc = memory_pop_word_from_stack(); }
 /* 0xc2 */ void jp_nz_nn(unsigned short op) { if (!FLAG_ZERO) { reg.pc = op; } }
 /* 0xc3 */ void jp_nn(unsigned short op) { reg.pc = op; }
-/* 0xc4 */ void call_nz_nn(unsigned short op) { if (!FLAG_ZERO) { memory_push_word_on_stack(reg.pc); reg.pc = op; } }
+/* 0xc4 */ void call_nz_nn(unsigned short op) { if (!FLAG_ZERO) { memory_push_word_on_stack(reg.pc); reg.pc = op; total_clock += 12; last_clock += 12; } }
 /* 0xc5 */ void push_bc(void) { memory_push_word_on_stack(reg.bc); }
 /* 0xc6 */ void add_a_n(unsigned char op) { reg.a = add(reg.a, op); }
-/* 0xc7 */ void rst_00(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x00; }
-/* 0xc8 */ void ret_z(void) { if (FLAG_ZERO) { reg.pc = memory_pop_word_from_stack(); } }
+/* 0xc7 */ void rst_00(void) { memory_push_word_on_stack(reg.pc); reg.pc = 0x00; }
+/* 0xc8 */ void ret_z(void) { if (FLAG_ZERO) { reg.pc = memory_pop_word_from_stack(); total_clock += 12; last_clock += 12; } }
 /* 0xc9 */ void ret(void) { reg.pc = memory_pop_word_from_stack(); }
 /* 0xca */ void jp_z_nn(unsigned short op) { if (FLAG_ZERO) { reg.pc = op; } }
-/* 0xcb */ void ext_ops(unsigned char op) { ((void (*)(void))(cb_opcode[op].fn))(); }
-/* 0xcc */ void call_z_nn(unsigned short op) { if (FLAG_ZERO) { memory_push_word_on_stack(reg.pc); reg.pc = op; } }
+/* 0xcb */ void ext_ops(unsigned char op) { ((void (*)(void))(cb_opcodes[op].fn))(); }
+/* 0xcc */ void call_z_nn(unsigned short op) { if (FLAG_ZERO) { memory_push_word_on_stack(reg.pc); reg.pc = op; total_clock += 12; last_clock += 12; } }
 /* 0xcd */ void call_nn(unsigned short op) { memory_push_word_on_stack(reg.pc); reg.pc = op; }
 /* 0xce */ void adc_a_n(unsigned char op) { add_carry(op); }
-/* 0xcf */ void rst_08(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x08; }
-/* 0xd0 */ void ret_nc(void) { if (!FLAG_CARRY) { reg.pc = memory_pop_word_from_stack(); } }
+/* 0xcf */ void rst_08(void) { memory_push_word_on_stack(reg.pc); reg.pc = 0x08; }
+/* 0xd0 */ void ret_nc(void) { if (!FLAG_CARRY) { reg.pc = memory_pop_word_from_stack(); total_clock += 12; last_clock += 12; } }
 /* 0xd1 */ void pop_de(void) { reg.de = memory_pop_word_from_stack(); }
 /* 0xd2 */ void jp_nc_nn(unsigned short op) { if (!FLAG_CARRY) { reg.pc = op; } }
 /* 0xd3 */ void bad_instruction_d3(void) { printf("/!\\ BAD INSTRUCTION D3 /!\\\n"); }
-/* 0xd4 */ void call_nc_nn(unsigned short op) { if (!FLAG_CARRY) { memory_push_word_on_stack(reg.pc); reg.pc = op; } }
+/* 0xd4 */ void call_nc_nn(unsigned short op) { if (!FLAG_CARRY) { memory_push_word_on_stack(reg.pc); reg.pc = op; total_clock += 12; last_clock += 12; } }
 /* 0xd5 */ void push_de(void) { memory_push_word_on_stack(reg.de); }
 /* 0xd6 */ void sub_a_n(unsigned char op) { reg.a = sub(reg.a, op); }
-/* 0xd7 */ void rst_10(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x10; }
-/* 0xd8 */ void ret_c(void) { if (FLAG_CARRY) { reg.pc = memory_pop_word_from_stack(); } }
+/* 0xd7 */ void rst_10(void) { memory_push_word_on_stack(reg.pc); reg.pc = 0x10; }
+/* 0xd8 */ void ret_c(void) { if (FLAG_CARRY) { reg.pc = memory_pop_word_from_stack(); total_clock += 12; last_clock += 12; } }
 /* 0xd9 */ void reti(void) { reg.pc = memory_pop_word_from_stack(); should_enable_interrupt = true; } // TODO Verif
 /* 0xda */ void jp_c_nn(unsigned short op) { if (FLAG_CARRY) { reg.pc = op; } }
 /* 0xdb */ void bad_instruction_db(void) { printf("/!\\ BAD INSTRUCTION DB /!\\\n"); }
-/* 0xdc */ void call_c_nn(unsigned short op) { if (FLAG_CARRY) { memory_push_word_on_stack(reg.pc); reg.pc = op; } }
+/* 0xdc */ void call_c_nn(unsigned short op) { if (FLAG_CARRY) { memory_push_word_on_stack(reg.pc); reg.pc = op; total_clock += 12; last_clock += 12; } }
 /* 0xdd */ void bad_instruction_dd(void) { printf("/!\\ BAD INSTRUCTION DD /!\\\n"); }
 /* 0xde */ void sbc_a_n(unsigned char op) { sub_carry(op); }
-/* 0xdf */ void rst_18(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x18; }
+/* 0xdf */ void rst_18(void) { memory_push_word_on_stack(reg.pc); reg.pc = 0x18; }
 /* 0xe0 */ void ldh_n_a(unsigned char op) { memory_write_byte(0xff00 | op, reg.a); }
 /* 0xe1 */ void pop_hl(void) { reg.hl = memory_pop_word_from_stack(); }
 /* 0xe2 */ void ldh_c_a(void) { memory_write_byte(0xff00 | reg.c, reg.a); }
@@ -1005,7 +1005,7 @@ const t_opcode	cb_opcode[] = {
 /* 0xe4 */ void bad_instruction_e4(void) { printf("/!\\ BAD INSTRUCTION E4 /!\\\n"); }
 /* 0xe5 */ void push_hl(void) { memory_push_word_on_stack(reg.hl); }
 /* 0xe6 */ void and_n(unsigned char op) { and(op); }
-/* 0xe7 */ void rst_20(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x20; }
+/* 0xe7 */ void rst_20(void) { memory_push_word_on_stack(reg.pc); reg.pc = 0x20; }
 /* 0xe8 */ void add_sp_n(unsigned char op) { reg.sp += (signed char)op; }
 /* 0xe9 */ void jp_hl(void) { reg.pc = reg.hl; }
 /* 0xea */ void ld_nn_a(unsigned short op) { memory_write_byte(op, reg.a); }
@@ -1013,7 +1013,7 @@ const t_opcode	cb_opcode[] = {
 /* 0xec */ void bad_instruction_ec(void) { printf("/!\\ BAD INSTRUCTION EC /!\\\n"); }
 /* 0xed */ void bad_instruction_ed(void) { printf("/!\\ BAD INSTRUCTION ED /!\\\n"); }
 /* 0xee */ void xor_n(unsigned char op) { xor(op); }
-/* 0xef */ void rst_28(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x28; }
+/* 0xef */ void rst_28(void) { memory_push_word_on_stack(reg.pc); reg.pc = 0x28; }
 /* 0xf0 */ void ldh_a_n(unsigned char op) { reg.a = memory_read_byte(0xff00 | op); }
 /* 0xf1 */ void pop_af(void) { reg.af = memory_pop_word_from_stack(); }
 /* 0xf2 */ void ldh_a_c(void) { reg.a = memory_read_byte(0xff00 | reg.c); }
@@ -1021,7 +1021,7 @@ const t_opcode	cb_opcode[] = {
 /* 0xf4 */ void bad_instruction_f4(void) { printf("/!\\ BAD INSTRUCTION F4 /!\\\n"); }
 /* 0xf5 */ void push_af(void) { memory_push_word_on_stack(reg.af); }
 /* 0xf6 */ void or_n(unsigned char op) { or(op); }
-/* 0xf7 */ void rst_30(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x30; }
+/* 0xf7 */ void rst_30(void) { memory_push_word_on_stack(reg.pc); reg.pc = 0x30; }
 /* 0xf8 */ void ldhl_sp_n(unsigned char op) { int ret; ret = reg.sp + (signed char)op; SET_CARRY_IF(ret & 0xffff0000); SET_HALF_IF((reg.sp & 0x0f) + (op & 0x0f) > 0x0f); UNSET_FLAG_NEG; UNSET_FLAG_ZERO; reg.hl = (unsigned short)(ret & 0xffff); }
 /* 0xf9 */ void ld_sp_hl(void) { reg.sp = reg.hl; }
 /* 0xfa */ void ld_a_nn(unsigned short op) { reg.a = memory_read_byte(op); }
@@ -1029,7 +1029,7 @@ const t_opcode	cb_opcode[] = {
 /* 0xfc */ void bad_instruction_fc(void) { printf("/!\\ BAD INSTRUCTION FC /!\\\n"); }
 /* 0xfd */ void bad_instruction_fd(void) { printf("/!\\ BAD INSTRUCTION FD /!\\\n"); }
 /* 0xfe */ void cp_n(unsigned char op) { cp(op); }
-/* 0xff */ void rst_38(void) { memory_write_word(reg.sp, reg.pc); reg.pc = 0x38; }
+/* 0xff */ void rst_38(void) { memory_push_word_on_stack(reg.pc); reg.pc = 0x38; }
 
 const t_opcode	opcodes[] = {
  	{ "NOP", 0, nop, 4 },           // 0x00
@@ -1233,11 +1233,11 @@ const t_opcode	opcodes[] = {
 	{ "ADD A,n", 1, add_a_n, 8 },       // 0xc6
 	{ "RST 0", 0, rst_00, 32 },         // 0xc7
 	{ "RET Z", 0, ret_z, 8 },         // 0xc8
-	{ "RET", 0, ret, 8 },           // 0xc9
+	{ "RET", 0, ret, 16 },           // 0xc9
 	{ "JP Z,nn", 2, jp_z_nn, 12 },       // 0xca
 	{ "Ext ops", 1, ext_ops, 0 },       // 0xcb
 	{ "CALL Z,nn", 2, call_z_nn, 12 },     // 0xcc
-	{ "CALL nn", 2, call_nn, 12 },       // 0xcd
+	{ "CALL nn", 2, call_nn, 24 },       // 0xcd
 	{ "ADC A,n", 1, adc_a_n, 8 },       // 0xce
 	{ "RST 8", 0, rst_08, 32 },         // 0xcf
 	{ "RET NC", 0, ret_nc, 8 },        // 0xd0
@@ -1249,7 +1249,7 @@ const t_opcode	opcodes[] = {
 	{ "SUB A,n", 1, sub_a_n, 8 },       // 0xd6
 	{ "RST 10", 0, rst_10, 32 },        // 0xd7
 	{ "RET C", 0, ret_c, 8 },         // 0xd8
-	{ "RETI", 0, reti, 8 },          // 0xd9
+	{ "RETI", 0, reti, 16 },          // 0xd9
 	{ "JP C,nn", 2, jp_c_nn, 12 },       // 0xda
 	{ "XX", 0, bad_instruction_db, 0 },            // 0xdb
 	{ "CALL C,nn", 2, call_c_nn, 12 },     // 0xdc

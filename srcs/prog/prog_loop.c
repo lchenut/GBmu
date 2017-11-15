@@ -10,7 +10,7 @@ static void		update_divider_timer(void)
 	inner_divider_timer += last_clock;
 	if (inner_divider_timer >= 256) {
 		Div_Register += 1;
-		inner_divider_timer = 0;
+		inner_divider_timer -= 256;
 	}
 }
 
@@ -117,13 +117,8 @@ static void		render_tiles(void)
 	unsigned char	posx;
 	unsigned char	data1;
 	unsigned char	data2;
-	// BYTE scrollY = ReadMemory(0xFF42) ;
-	// BYTE scrollX = ReadMemory(0xFF43) ;
-	// BYTE windowY = ReadMemory(0xFF4A) ;
-	// BYTE windowX = ReadMemory(0xFF4B) - 7;
 
-	// The window is displayable and WindowYPos must be less than or equal to 144
-	using_window = ((LCD_Control >> 5) & 1) && Window_Y_Pos <= LCD_Y_Coord; // /!\ modif par rapport a l'orig
+	using_window = ((LCD_Control >> 5) & 1) && Window_Y_Pos <= LCD_Y_Coord;
 	if ((LCD_Control >> 4) & 1) {
 		tile_data = 0x8000;
 		unsig = true;
@@ -141,23 +136,17 @@ static void		render_tiles(void)
 	} else {
 		posy = LCD_Y_Coord + Scroll_Y;
 	}
-	//posy = LCD_Y_Coord + (using_window ? Scroll_Y : -Window_Y_Pos); // C'est degueu
-	// WORD tileRow = (((BYTE)(yPos/8))*32) ;
-	// time to start drawing the 160 horizontal pixels
-	// for this scanline
 	for (int pixel = 0; pixel < 160; pixel += 1) {
 		posx = pixel + Scroll_X;
 		if (using_window && pixel >= Window_X_Pos - 7) {
 			posx = pixel - Window_X_Pos - 7;
 		}
 		tile_data_address = bg_memory_address + ((posy / 8) * 32) + (posx / 8);
-		//printf("%hx (unsig %i) => %hhx\n", tile_data_address, unsig, memory_read_byte(tile_data_address));
 		if (unsig) {
 			tile_location = tile_data + (memory_read_byte(tile_data_address) * 16);
 		} else {
 			tile_location = tile_data + (((signed char)memory_read_byte(tile_data_address) + 128) * 16);
 		}
-		//printf("%hx => %hx\n", tile_data, tile_location);
 		data1 = memory_read_byte(tile_location + (posy % 8) * 2);
 		data2 = memory_read_byte(tile_location + (posy % 8) * 2 + 1);
 		int color_bit = (posx % 8 - 7) * -1;
@@ -166,7 +155,7 @@ static void		render_tiles(void)
 		int r, g, b;
 		switch ((palette >> (color_num * 2)) & 0x3)
 		{
-			case 0: r = 0xff; g = 0xff; b = 0xff; /* dprintf(2, "Que Du Blanc\n"); */ break ;
+			case 0: r = 0xff; g = 0xff; b = 0xff; break ;
 			case 1: r = 0xcc; g = 0xcc; b = 0xcc; break ;
 			case 2: r = 0x77; g = 0x77; b = 0x77; break ;
 			case 3: r = 0x00; g = 0x00; b = 0x00; break ;
@@ -174,15 +163,57 @@ static void		render_tiles(void)
 		game[pixel][LCD_Y_Coord][0] = r;
 		game[pixel][LCD_Y_Coord][1] = g;
 		game[pixel][LCD_Y_Coord][2] = b;
-//		SDL_SetRenderDrawColor(debugger->renderer, r, g, b, 0);
-//		SDL_RenderDrawPoint(debugger->renderer, 400 + pixel, 400 + mem.memory[0xff44]);
-//		m_ScreenData[pixel][finaly][0] = red ;
-//		m_ScreenData[pixel][finaly][1] = green ;
-//		m_ScreenData[pixel][finaly][2] = blue ;
 	}
-	//dprintf(2, "YAYYAYAYA C'etait: %hhu\n", mem.memory[0xff44]);
-	//SDL_RenderPresent(debugger->renderer);
 } 
+
+void			render_sprites(void)
+{
+	unsigned char	size_y;
+	unsigned char	posx;
+	unsigned char	posy;
+	unsigned char	tile_loc;
+	unsigned char	attributes;
+	unsigned char	data1;
+	unsigned char	data2;
+	int				line;
+
+	size_y = (LCD_Control >> 2) & 1 ? 16 : 8;
+	for (unsigned short index_sprite = 0; index_sprite < 0x100; index_sprite += 4) {
+		posy = memory_read_byte(0xfe00 + index_sprite) - 16;
+		posx = memory_read_byte(0xfe00 + index_sprite + 1) - 8;
+		tile_loc = memory_read_byte(0xfe00 + index_sprite + 2);
+		attributes = memory_read_byte(0xfe00 + index_sprite + 3);
+		if (LCD_Y_Coord < posy || LCD_Y_Coord >= (posy + size_y)) {
+			continue ;
+		}
+		if ((attributes >> 6) & 1) {
+			line = 2 * (size_y - (LCD_Y_Coord - posy));
+		} else {
+			line = 2 * (LCD_Y_Coord - posy);
+		}
+		data1 = memory_read_byte(0x8000 + (tile_loc * 16) + line);
+		data2 = memory_read_byte(0x8000 + (tile_loc * 16) + line + 1);
+		for (int tile_pixel = 7; tile_pixel >= 0; tile_pixel -= 1) {
+			int color_bit = tile_pixel;
+			if ((attributes >> 5) & 1) {
+				color_bit = 7 - color_bit;
+			}
+			int color_num = (((data2 >> color_bit) & 1) << 1) | ((data1 >> color_bit) & 1);
+			int palette = BG_Palette;
+			int r, g, b;
+			switch ((palette >> (color_num * 2)) & 0x3)
+			{
+				case 0: r = 0xff; g = 0xff; b = 0xff; break ;
+				case 1: r = 0xcc; g = 0xcc; b = 0xcc; break ;
+				case 2: r = 0x77; g = 0x77; b = 0x77; break ;
+				case 3: r = 0x00; g = 0x00; b = 0x00; break ;
+			}
+			game[posx + (7 - tile_pixel)][LCD_Y_Coord][0] = r;
+			game[posx + (7 - tile_pixel)][LCD_Y_Coord][1] = g;
+			game[posx + (7 - tile_pixel)][LCD_Y_Coord][2] = b;
+		}
+	}
+}
 
 static void		draw_scanline(void)
 {
@@ -190,7 +221,7 @@ static void		draw_scanline(void)
 		render_tiles();
 	}
 	if (LCD_Control & (1 << 1)) {
-//		render_sprites();
+		render_sprites();
 	}
 } 
 
@@ -208,15 +239,14 @@ static void		update_graphics(t_debugger *this)
 	set_lcd_status(scanline_counter);
 	scanline_counter += last_clock;
 	if (scanline_counter > 456) {
-		//printf("\033[32m%hhu\033[m\n", mem.memory[0xff44]);
 		if (LCD_Y_Coord == 144) {
 			Interrupt_Flag |= (1 << 0); // VBlank Interrupt
+			debugger_dump(this);
 		} else if (LCD_Y_Coord > 153) {
 			LCD_Y_Coord = 0;
 		}
 		if (LCD_Y_Coord < 144) {
 			draw_scanline();
-			debugger_dump(this);
 		}
 		LCD_Y_Coord += 1;
 		scanline_counter -= 456;
@@ -234,9 +264,11 @@ static void		loop_debugger_next_opcode(t_debugger *this)
 	update_timer();
 	update_graphics(this);
 	update_interrupt();
-	// if (clock >= 69905) {
-	// 	debugger_print_game(this);
-	// }
+	if (total_clock >= 69905) {
+		//debugger_print_game(this);
+		debugger_dump(this);
+		total_clock -= 69905;
+	}
 	(void)this;
 }
 
@@ -256,8 +288,54 @@ static void		loop_debugger_keyboard_type(t_prog *this, t_debugger *debugger, SDL
 		debugger_scroll_end(debugger);
 	} else if (event->key.keysym.scancode == SDL_SCANCODE_HOME) {
 		debugger_scroll_home(debugger);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_Q) {
+		joypad &= ~(1 << 7);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_W) {
+		joypad &= ~(1 << 6);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_B) {
+		joypad &= ~(1 << 5);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_A) {
+		joypad &= ~(1 << 4);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_DOWN) {
+		joypad &= ~(1 << 3);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_UP) {
+		joypad &= ~(1 << 2);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_LEFT) {
+		joypad &= ~(1 << 1);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_RIGHT) {
+		joypad &= ~(1 << 0);
+	}
+	if (!debugger->step_by_step) {
+		loop_debugger_next_opcode(debugger);
+		//if (vector_exists(debugger->breakpoints, find_fn, (void *)((size_t)reg.pc))) {
+		//	debugger->step_by_step = true;
+		//	debugger_dump(debugger);
+		//}
 	}
 	(void)this;
+}
+
+static void		loop_debugger_keyboard_up_type(t_prog *this, t_debugger *debugger, SDL_Event *event)
+{
+	if (event->key.keysym.scancode == SDL_SCANCODE_Q) {
+		joypad |= (1 << 7);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_W) {
+		joypad |= (1 << 6);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_B) {
+		joypad |= (1 << 5);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_A) {
+		joypad |= (1 << 4);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_DOWN) {
+		joypad |= (1 << 3);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_UP) {
+		joypad |= (1 << 2);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_LEFT) {
+		joypad |= (1 << 1);
+	} else if (event->key.keysym.scancode == SDL_SCANCODE_RIGHT) {
+		joypad |= (1 << 0);
+	}
+	(void)this;
+	(void)debugger;
 }
 
 static void		loop_debugger_mouse_type(t_prog *this, t_debugger *debugger, SDL_Event *event)
@@ -272,35 +350,37 @@ static void		loop_debugger_mouse_type(t_prog *this, t_debugger *debugger, SDL_Ev
 
 static void		loop_debugger(t_prog *this)
 {
+	(void)find_fn;
 	SDL_Event	event;
 //	t_debugger	*debugger;
-	int			loop;
+//	(void)loop_debugger_keyboard_type;
+//	(void)loop_debugger_mouse_type;
+//	(void)this;
+//	(void)event;
+//	(void)find_fn;
 
 	debugger = debugger_new();
 	debugger_dump(debugger);
-	debugger->step_by_step = true;
-	loop = 0;
+	//debugger->step_by_step = true;
+	debugger->step_by_step = false;
+//	SDL_WaitEvent(&event);
 	while (1) {
-		loop += 1;
-		if (!debugger->step_by_step) {
-			SDL_WaitEventTimeout(&event, 0);
-		} else {
-			SDL_WaitEvent(&event);
+		while (SDL_PollEvent(&event)) {
+			if (event.type == SDL_QUIT) {
+				return ;
+			} else if (event.type == SDL_KEYDOWN) {
+				loop_debugger_keyboard_type(this, debugger, &event);
+			} else if (event.type == SDL_KEYUP) {
+				loop_debugger_keyboard_up_type(this, debugger, &event);
+			} else if (event.type == SDL_MOUSEBUTTONDOWN) {
+				loop_debugger_mouse_type(this, debugger, &event);
+			}
 		}
-		if (event.type == SDL_QUIT) {
-			break ;
-		} else if (event.type == SDL_KEYDOWN) {
-			loop_debugger_keyboard_type(this, debugger, &event);
-		} else if (event.type == SDL_MOUSEBUTTONDOWN) {
-			loop_debugger_mouse_type(this, debugger, &event);
-		} else if (!debugger->step_by_step) {
+		if (!debugger->step_by_step) {
 			loop_debugger_next_opcode(debugger);
-			if (vector_exists(debugger->breakpoints, find_fn, (void *)((size_t)reg.pc))) {
-				debugger->step_by_step = true;
-				debugger_dump(debugger);
-			}// else if (loop % 10000 == 0) {
+			//if (vector_exists(debugger->breakpoints, find_fn, (void *)((size_t)reg.pc))) {
+			//	debugger->step_by_step = true;
 			//	debugger_dump(debugger);
-			//	loop = 0;
 			//}
 		}
 	}
@@ -308,9 +388,9 @@ static void		loop_debugger(t_prog *this)
 
 void			prog_loop(t_prog *this)
 {
+//	memory_to_commands();
 	this->debug_mode = true;
 	if (this->debug_mode == true) {
 		loop_debugger(this);
 	}
-	(void)this;
 }

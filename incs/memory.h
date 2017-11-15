@@ -39,6 +39,7 @@ typedef union			u_memory {
 
 extern t_memory				mem;
 extern t_vector				*rom;
+extern unsigned char		joypad;
 
 void						memory_reset(void);
 
@@ -53,5 +54,7 @@ void						memory_push_word_on_stack(unsigned short op);
 
 unsigned char				memory_pop_byte_from_stack(void);
 unsigned short				memory_pop_word_from_stack(void);
+
+t_vector					*memory_to_commands(void);
 
 #endif // MEMORY_H

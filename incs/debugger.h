@@ -9,6 +9,12 @@
 # include "scroll.h"
 # include "visual.h"
 
+typedef struct		s_command
+{
+	char			*command;
+	size_t			incr;
+}					t_command;
+
 typedef struct		s_debugger
 {
 	SDL_Window		*window;
@@ -16,6 +22,7 @@ typedef struct		s_debugger
 	TTF_Font		*font;
 	bool			step_by_step;
 	t_scroll		*scroll_xxd;
+	t_vector		*commands;
 	t_vector		*breakpoints;
 }					t_debugger;
 

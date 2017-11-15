@@ -14,6 +14,8 @@ extern size_t	total_clock;
 extern size_t	last_clock;
 
 extern bool		master_interrupt;
+extern const t_opcode	opcodes[];
+extern const t_opcode	cb_opcodes[];
 
 void			next_opcode(void);
 

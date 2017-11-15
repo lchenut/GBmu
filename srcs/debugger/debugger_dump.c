@@ -128,7 +128,7 @@ void		dump_commands(t_debugger *this)
 
 	index = reg.pc;
 	for (int i = 0; i < 10; i += 1) {
-		op = get_opcode(index);
+		op = opcodes + mem.memory[index];
 		dump_command(this, op, index, i);
 		index += 1 + op->argument;
 	}
@@ -139,36 +139,39 @@ void		debugger_print_game(t_debugger *this)
 	for (unsigned char i = 0; i < 160; i += 1) {
 		for (unsigned char j = 0; j < 144; j += 1) {
 			SDL_SetRenderDrawColor(this->renderer, game[i][j][0], game[i][j][1], game[i][j][2], 0);
-			SDL_RenderDrawPoint(this->renderer, 500 + i, 700 + j);
+			//SDL_RenderDrawPoint(this->renderer, 500 + i, 700 + j);
+			SDL_RenderDrawPoint(this->renderer, 10 + i, 10 + j);
 		}
 	}
 }
 
 void		debugger_dump(t_debugger *this)
 {
-	size_t	i;
-	size_t	e;
-	int		w;
-	int		h;
+	(void)draw_line;
+	//size_t	i;
+	//size_t	e;
+	//int		w;
+	//int		h;
 
-	i = this->scroll_xxd->current * 16;
-	e = i + 0x500;
-	w = 0;
-	h = 0;
+	//i = this->scroll_xxd->current * 16;
+	//e = i + 0x500;
+	//w = 0;
+	//h = 0;
 	SDL_SetRenderDrawColor(this->renderer, 127, 127, 127, 255);
 	SDL_RenderClear(this->renderer);
 	//SDL_RenderPresent(this->renderer);
-	SDL_SetRenderDrawColor(this->renderer, 255, 255, 255, 255);
-	visual_fill_rectangle(this->renderer, 8, 8, 330, 1137);
-	visual_fill_rectangle(this->renderer, 398, 8, 109, 67);
-	visual_fill_rectangle(this->renderer, 398, 98, 200, 117);
+//	SDL_SetRenderDrawColor(this->renderer, 255, 255, 255, 255);
+//	visual_fill_rectangle(this->renderer, 8, 8, 330, 1137);
+//	visual_fill_rectangle(this->renderer, 398, 8, 109, 67);
+	visual_fill_rectangle(this->renderer, 10, 10, 200, 117);
+	/*game*///visual_fill_rectangle(this->renderer, 398, 98, 200, 117);
 	//SDL_RenderClear(this->renderer);
-	for (; i <= e; i += 16) {
-		draw_line(this, i, &w, &h);
-	}
-	scroll_draw(this->scroll_xxd, this->renderer);
-	dump_registers(this);
-	dump_commands(this);
+//	for (; i <= e; i += 16) {
+//		draw_line(this, i, &w, &h);
+//	}
+//	scroll_draw(this->scroll_xxd, this->renderer);
+//	dump_registers(this);
+//	dump_commands(this);
 	debugger_print_game(this);
 	SDL_RenderPresent(this->renderer);
 //	for (unsigned char i = 0; i < 144; i += 1) {
@@ -193,7 +196,7 @@ bool			debugger_add_breakpoint(t_debugger *this, size_t x, size_t y)
 	if (x > 400 && x < 600 && y > 100 && y < 205) {
 		index = reg.pc;
 		for (y = (y - 100) / 10; y > 0; y -= 1) {
-			op = get_opcode(index);
+			op = opcodes + mem.memory[index];
 			index += 1 + op->argument;
 		}
 		bp_add_if_exists_remove_else(this, index);
